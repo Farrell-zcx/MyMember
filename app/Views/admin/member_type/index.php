@@ -143,25 +143,20 @@
             <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="dashboard">dashboard</span>
             <span class="">Dashboard</span>
         </a>
-        <!-- Members (Active) -->
+        <!-- Members -->
+        <a href="/admin/member" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
+            <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="group">group</span>
+            <span class="">Daftar Member</span>
+        </a>
+        <!-- Member Type (Active) -->
         <a href="/admin/member-type" class="flex items-center px-4 py-3 transition-colors duration-200 text-secondary dark:text-secondary-fixed font-bold border-r-4 border-secondary font-body-md text-body-md bg-secondary/5 group">
-            <span class="material-symbols-outlined mr-4" data-icon="group" style="font-variation-settings: 'FILL' 1;">group</span>
-            <span class="">Members</span>
+            <span class="material-symbols-outlined mr-4" data-icon="card_membership" style="font-variation-settings: 'FILL' 1;">card_membership</span>
+            <span class="">Kelola Member</span>
         </a>
-        <!-- Billing -->
-        <a href="#" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
-            <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="payments">payments</span>
-            <span class="">payments</span>
-        </a>
-        <!-- Reports -->
-        <a href="#" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
-            <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="assessment">assessment</span>
-            <span class="">Reports</span>
-        </a>
-        <!-- Settings -->
-        <a href="#" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
-            <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="settings">settings</span>
-            <span class="">Settings</span>
+        <!-- Riwayat Kunjungan -->
+        <a href="/admin/log-kunjungan" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
+            <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="history">history</span>
+            <span class="">Riwayat Kunjungan</span>
         </a>
         <!-- Logout -->
         <a href="/logout" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-body-md text-body-md group">
@@ -473,6 +468,55 @@
             }, 500);
         }, 3000);
     }
+    // Real-time Kiosk Sync (Polling)
+    setInterval(async () => {
+        try {
+            const response = await fetch('<?= base_url("admin/member-type/poll-scan") ?>');
+            if (response.status !== 200) return;
+            const result = await response.json();
+            
+            if (result.status === "sukses" && result.data_ktp) {
+                const data = result.data_ktp;
+                if (data.nik && data.nik !== "Tidak terdeteksi") {
+                    document.querySelector('input[name="nik"]').value = data.nik;
+                    
+                    // Fetch existing member details if NIK is already registered
+                    fetch(`<?= base_url('ocr/get-member') ?>?nik=${data.nik}`)
+                        .then(res => res.json())
+                        .then(memberResult => {
+                            if (memberResult.status === 'sukses' && memberResult.exists) {
+                                const m = memberResult.data;
+                                if (m.nomor_hp) document.querySelector('input[name="nomor_hp"]').value = m.nomor_hp;
+                                if (m.email) document.querySelector('input[name="email"]').value = m.email;
+                                if (m.id_type) document.querySelector('select[name="id_type"]').value = m.id_type;
+                                if (m.sisa_kuota !== undefined) document.querySelector('input[name="sisa_kuota"]').value = m.sisa_kuota;
+                                if (m.tgl_expired_member) document.querySelector('input[name="tgl_expired_member"]').value = m.tgl_expired_member;
+                            }
+                        })
+                        .catch(err => console.error("Error loading existing member:", err));
+                }
+                if (data.nama && data.nama !== "Tidak terdeteksi") document.querySelector('input[name="nama_lengkap"]').value = data.nama;
+                
+                // Show floating notification instead of blocking alert
+                const alertHtml = `
+                    <div id="kioskNotice" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;" class="p-4 bg-secondary/10 text-secondary border border-secondary/20 rounded-lg flex items-center gap-3 shadow-lg">
+                        <span class="material-symbols-outlined text-[28px]">contactless</span>
+                        <div>
+                            <div class="font-bold">KTP Ter-scan via Kiosk!</div>
+                            <div class="text-sm">NIK & Nama Lengkap sukses ditarik.</div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', alertHtml);
+                setTimeout(() => {
+                    const el = document.getElementById('kioskNotice');
+                    if (el) el.remove();
+                }, 4000);
+            }
+        } catch (e) {
+            // silent fail on polling error
+        }
+    }, 2000); // poll every 2 seconds
 </script>
 </body>
 </html>

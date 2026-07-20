@@ -49,6 +49,13 @@ class OcrController extends BaseController
             }
 
             $result  = json_decode($rawBody, true);
+
+            // Simpan ke cache jika sukses, agar bisa diambil oleh Admin Panel (Real-time polling)
+            if (isset($result['status']) && $result['status'] === 'sukses') {
+                $cache = \Config\Services::cache();
+                $cache->save('latest_ktp_scan', $result, 60); // Simpan selama 60 detik
+            }
+
             return $this->response->setJSON($result);
 
         } catch (\Exception $e) {
@@ -92,6 +99,14 @@ class OcrController extends BaseController
                         'sisa_kuota' => $newQuota,
                         'updated_at' => date('Y-m-d H:i:s')
                     ]);
+
+                // Insert ke log_kunjungan
+                $db->table('log_kunjungan')->insert([
+                    'NIK' => $nik,
+                    'waktu_kunjungan' => date('Y-m-d H:i:s'),
+                    'kuota_awal' => $member->sisa_kuota,
+                    'kuota_akhir' => $newQuota
+                ]);
 
                 return $this->response->setJSON([
                     'status'     => 'sukses',
