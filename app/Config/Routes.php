@@ -10,8 +10,15 @@ $routes->get('register', 'Auth::register');
 $routes->post('register/process', 'Auth::registerProcess');
 $routes->get('logout', 'Auth::logout');
 
-// Route dashboard langsung mengarah ke halaman CRUD MemberType
-$routes->get('admin/dashboard', 'MemberType::index');
+// Route dashboard mengarah ke halaman Dashboard Ringkasan
+$routes->get('admin/dashboard', 'Dashboard::index');
+$routes->get('admin/dashboard/live', 'Dashboard::getLiveStats');
+
+// Route untuk Daftar Member (Read Only)
+$routes->get('admin/member', 'Member::index');
+
+// Route untuk Riwayat Kunjungan
+$routes->get('admin/log-kunjungan', 'LogKunjungan::index');
 
 // ROUTE SEMENTARA: Reset session jika ada bug cookie lama (hapus setelah selesai)
 $routes->get('admin/session-fix', function () {
@@ -33,6 +40,7 @@ $routes->group('admin/member-type', function ($routes) {
     $routes->post('update/(:num)', 'MemberType::update/$1');
     $routes->get('delete/(:num)', 'MemberType::delete/$1');
     $routes->post('scan-ocr', 'MemberType::scanOcr');
+    $routes->get('poll-scan', 'MemberType::pollScanEvent');
 });
 
 $routes->get('ocr', 'OcrController::index');

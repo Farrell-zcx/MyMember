@@ -195,4 +195,18 @@ class MemberType extends Controller
             ]);
         }
     }
+
+    public function pollScanEvent()
+    {
+        $cache = \Config\Services::cache();
+        $data = $cache->get('latest_ktp_scan');
+
+        if ($data) {
+            // Jika ada data, hapus dari cache agar tidak terbaca 2x
+            $cache->delete('latest_ktp_scan');
+            return $this->response->setJSON($data);
+        }
+
+        return $this->response->setJSON(['status' => 'waiting']);
+    }
 }
