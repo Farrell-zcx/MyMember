@@ -20,6 +20,6 @@ class LogKunjungan extends Controller
 
         $data['logs'] = $builder->get()->getResultArray();
 
-        return view('admin/log_kunjungan/index', $data);
+        return view('admin/log_kunjungan', $data);
     }
 }

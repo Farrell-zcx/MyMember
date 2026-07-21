@@ -17,14 +17,13 @@ app = FastAPI(
     version="5.1.0"
 )
 
-# --- KONFIGURASI CORS ---
 # Izinkan web mymember untuk mengakses API ini
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Di production, ganti "*" dengan domain webmu, misal: ["https://mymember.id"]
+    allow_origins=["*"], 
     allow_credentials=True,
-    allow_methods=["*"], # Mengizinkan POST, GET, dll.
-    allow_headers=["*"], # Mengizinkan semua header
+    allow_methods=["*"], 
+    allow_headers=["*"], 
 )
 
 PROVINSI_VALID = {
@@ -37,7 +36,7 @@ PROVINSI_VALID = {
     91, 92, 93, 94, 95, 96,
 }
 
-# Tabel Koreksi Karakter (Fuzzy OCR)
+# Tabel Koreksi Karakter OCR
 CHAR_FIX = {
     'O': '0', 'o': '0', 'Q': '0', 'D': '0',
     'I': '1', 'l': '1', 'i': '1', '|': '1', '!': '1', 'L': '1',
@@ -194,7 +193,7 @@ NIK_PIPELINES = [
 ]
 
 
-# PIPELINE FULL TEXT (Nama + DOB + Provinsi)
+# Pipeline Full Text (Nama + DOB + Provinsi)
 def text_pipe_standard(gray, quality=None):
     big = _upscale(gray, 2.5)
     alpha = 1.4
@@ -280,11 +279,6 @@ def _ocr_worker(processed_img, config):
 
 # EKSTRAKSI NIK — VOTING + CROSS-VALIDATION
 def _find_valid_niks(text):
-    """
-    Cari NIK plausible PER BARIS dari output OCR digit-only.
-    Kita mencari NIK plausible (valid provinsi & panjang 16) agar voting dapat
-    mengoreksi typo karakter secara konsensus.
-    """
     results = []
     for line in text.split('\n'):
         # Terapkan koreksi karakter fuzzy terlebih dahulu agar karakter huruf tidak di-strip sia-sia
@@ -333,13 +327,6 @@ def _get_dob_match_score(candidate, dob):
 
 
 def _reconstruct_nik(candidates, dob_digits, provinsi_code):
-    """
-    Rekonstruksi NIK akhir menggunakan kombinasi Voting Berbobot & Cross-Validation:
-    - Digit 1-2 (Provinsi): Prioritas kode provinsi dari teks KTP.
-    - Digit 3-6 (Kode Wilayah): Voting NIK candidates.
-    - Digit 7-12 (DOB): Joint voting/consensus antara NIK candidates dan dob_digits (bobot tinggi).
-    - Digit 13-16 (Urutan): Voting NIK candidates.
-    """
     if not candidates:
         return "Tidak terdeteksi"
 
@@ -541,7 +528,6 @@ def detect_and_crop_ktp(gray):
 
 
 def extract_nik_fast(gray, is_cropped=False):
-    """Kumpulkan seluruh kandidat NIK dengan pembobotan (weight) berdasarkan asal crop."""
     h, w = gray.shape[:2]
     
     # Analisis Kualitas Gambar
@@ -554,7 +540,7 @@ def extract_nik_fast(gray, is_cropped=False):
 
     tasks = []
     
-    # Jalankan pada full cropped image (jika berhasil dipotong) 
+    # Jalankan pada full cropped image 
     if is_cropped:
         for pipe_fn in NIK_PIPELINES:
             try:
@@ -646,7 +632,6 @@ def _parse_nama(text):
         line_upper = line.strip().upper()
 
         # Ekstrak NAMA dengan menoleransi spasi di dalam label NAMA (misal: "N A M A")
-        # (?![A-Z]) memastikan setelah pola NAMA bukanlah huruf (mencegah match salah pada MANADO atau SEMARANG)
         match = re.search(r'([NM]\s*[A4R]\s*[MN]\s*[A4R])(?![A-Z])\s*[:;.\-]?\s*(.*)', line_upper)
         
         if match:
@@ -738,14 +723,14 @@ def deskew_by_text(gray):
     """
     Fallback method: Meluruskan gambar berdasarkan orientasi baris teks (Hybrid Mode).
     """
-    # 1. Adaptive Thresholding (lebih kebal cahaya tidak rata)
+    # Adaptive Thresholding (lebih kebal cahaya tidak rata)
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 21, 15)
     
-    # 2. Dilation horizontal untuk menggabungkan huruf menjadi baris teks
+    # Dilation horizontal untuk menggabungkan huruf menjadi baris teks
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (35, 3))
     dilated = cv2.dilate(thresh, kernel, iterations=1)
     
-    # 3. Cari contour baris teks
+    # Cari contour baris teks
     contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     angles = []
@@ -765,7 +750,7 @@ def deskew_by_text(gray):
                     angles.append(angle)
                     
     if angles:
-        # 4. Ambil median sudut untuk mengabaikan noise (outlier)
+        # Ambil median sudut untuk mengabaikan noise (outlier)
         median_angle = float(np.median(angles))
         
         # Putar hanya jika kemiringannya cukup terasa (> 1.5 derajat) 

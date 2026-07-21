@@ -1,6 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="en" class="light">
 <head>
+    <?php
+    /** @noinspection PhpUndefinedVariableInspection */
+    /** @noinspection PhpUndefinedFunctionInspection */
+    /** @var array $members */
+    ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MyMember Admin - Daftar Member</title>

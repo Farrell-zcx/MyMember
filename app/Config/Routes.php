@@ -10,8 +10,9 @@ $routes->get('register', 'Auth::register');
 $routes->post('register/process', 'Auth::registerProcess');
 $routes->get('logout', 'Auth::logout');
 
-// Route dashboard langsung mengarah ke halaman CRUD MemberType
-$routes->get('admin/dashboard', 'MemberType::index');
+// Route dashboard mengarah ke halaman Dashboard Ringkasan
+$routes->get('admin/dashboard', 'Dashboard::index');
+$routes->get('admin/dashboard/live', 'Dashboard::getLiveStats');
 
 // Route untuk Daftar Member (Read Only)
 $routes->get('admin/member', 'Member::index');

@@ -20,6 +20,6 @@ class Member extends Controller
 
         $data['members'] = $builder->get()->getResultArray();
 
-        return view('admin/member/index', $data);
+        return view('admin/member', $data);
     }
 }

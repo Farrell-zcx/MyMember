@@ -1,6 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="en" class="light">
 <head>
+    <?php
+    /** @noinspection PhpUndefinedVariableInspection */
+    /** @noinspection PhpUndefinedFunctionInspection */
+    /** @var array $logs */
+    ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MyMember Admin - Riwayat Kunjungan</title>
@@ -144,7 +150,7 @@
         <div class="flex justify-between items-end mb-8">
             <div>
                 <h2 class="font-headline-xl text-headline-xl text-primary mb-1">Riwayat Kunjungan</h2>
-                <p class="font-body-md text-body-md text-on-surface-variant">Data riwayat check-in member menggunakan mesin Kiosk OCR.</p>
+                <p class="font-body-md text-body-md text-on-surface-variant">Data riwayat kunjungan check-in member menggunakan OCR.</p>
             </div>
         </div>
 
