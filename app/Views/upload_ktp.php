@@ -239,8 +239,12 @@
 
             <!-- FAILURE STATUS (UNREGISTERED) -->
             <div id="resultUnregistered" class="hidden space-y-lg">
-                <div class="inline-flex items-center justify-center w-20 h-20 bg-error-container text-error rounded-full">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-error-container text-error rounded-full relative">
                     <span class="material-symbols-outlined text-[44px]" data-icon="person_add">person_add</span>
+                    <span class="absolute top-0 right-0 w-5 h-5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-5 w-5 bg-error border-2 border-white"></span>
+                    </span>
                 </div>
                 <div class="space-y-xs">
                     <h2 class="font-headline-xl text-headline-xl text-primary tracking-tight">Belum Terdaftar</h2>
@@ -248,8 +252,13 @@
                         NIK Anda belum terdaftar sebagai member di sistem kami.
                     </p>
                 </div>
-                <div class="p-md bg-error-container/40 rounded-xl border border-error/15 text-on-error-container">
-                    <p class="text-sm font-semibold">Silakan temui petugas resepsionis di samping Anda untuk melakukan registrasi baru.</p>
+                <div class="p-md bg-surface-container-low rounded-xl border border-outline-variant flex flex-col items-center justify-center space-y-sm">
+                    <svg class="animate-spin h-8 w-8 text-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-sm font-semibold text-primary">Harap tunggu sebentar...</p>
+                    <p class="text-xs text-on-surface-variant max-w-[250px] mx-auto text-center">Resepsionis sedang memproses pendaftaran data Anda secara otomatis.</p>
                 </div>
             </div>
 
@@ -285,7 +294,7 @@
                 </div>
             </div>
 
-            <button onclick="resetToScan()" class="w-full py-3 bg-secondary text-on-secondary rounded-lg font-label-md text-label-md hover:bg-secondary-container transition-all active:scale-[0.98]">
+            <button id="btnKembaliResult" onclick="resetToScan()" class="w-full py-3 bg-secondary text-on-secondary rounded-lg font-label-md text-label-md hover:bg-secondary-container transition-all active:scale-[0.98]">
                 Kembali
             </button>
         </div>
@@ -315,12 +324,17 @@
                     const formData = new FormData();
                     formData.append('nik', currentNik);
                     formData.append('nama', currentNama);
-                    
+
                     const csrfToken = document.querySelector('input[name="csrf_test_name"]');
                     if (csrfToken) formData.append(csrfToken.name, csrfToken.value);
                     try {
-                        await fetch(updateUrl, { method: 'POST', body: formData });
-                    } catch (e) { console.error("Gagal update cache"); }
+                        await fetch(updateUrl, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } catch (e) {
+                        console.error("Gagal update cache");
+                    }
                 }
             }, 500);
         }
@@ -388,7 +402,11 @@
                                     if (m.tgl_expired_member) {
                                         // Format date YYYY-MM-DD to DD-MM-YYYY or readable format
                                         const d = new Date(m.tgl_expired_member);
-                                        const formattedDate = !isNaN(d) ? d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : m.tgl_expired_member;
+                                        const formattedDate = !isNaN(d) ? d.toLocaleDateString('id-ID', {
+                                            day: '2-digit',
+                                            month: 'long',
+                                            year: 'numeric'
+                                        }) : m.tgl_expired_member;
                                         document.getElementById('expiredConfirm').innerText = formattedDate;
                                         document.getElementById('expiredConfirmWrapper').classList.remove('hidden');
                                     }
@@ -475,9 +493,11 @@
                     document.getElementById('successName').innerText = result.nama;
                     document.getElementById('successQuota').innerText = result.sisa_kuota;
                     document.getElementById('resultSuccess').classList.remove('hidden');
+                    document.getElementById('btnKembaliResult').classList.remove('hidden');
                 } else if (result.status === 'unregistered') {
                     document.getElementById('resultUnregistered').classList.remove('hidden');
-                    
+                    document.getElementById('btnKembaliResult').classList.add('hidden'); // Sembunyikan tombol kembali saat menunggu admin
+
                     // Tunggu admin/resepsionis selesai registrasi member
                     pollInterval = setInterval(async () => {
                         try {
@@ -489,10 +509,13 @@
                                     // Sudah terdaftar oleh admin
                                     clearInterval(pollInterval);
                                     pollInterval = null;
-                                    
+
                                     // Sembunyikan layar belum terdaftar
                                     document.getElementById('resultUnregistered').classList.add('hidden');
-                                    
+
+                                    // Munculkan kembali tombol KEMBALI
+                                    document.getElementById('btnKembaliResult').classList.remove('hidden');
+
                                     // Tampilkan layar sukses dengan data terbaru
                                     document.getElementById('successName').innerText = memberRes.data.nama_lengkap;
                                     document.getElementById('successQuota').innerText = memberRes.data.sisa_kuota;
@@ -503,11 +526,13 @@
                             // Abaikan error jaringan sementara
                         }
                     }, 2000); // Polling setiap 2 detik
-                    
+
                 } else if (result.status === 'limit') {
                     document.getElementById('resultLimit').classList.remove('hidden');
+                    document.getElementById('btnKembaliResult').classList.remove('hidden');
                 } else if (result.status === 'expired') {
                     document.getElementById('resultExpired').classList.remove('hidden');
+                    document.getElementById('btnKembaliResult').classList.remove('hidden');
                 } else {
                     alert("Kesalahan Sistem: " + result.pesan);
                     resetToScan();
@@ -529,13 +554,16 @@
                 clearInterval(pollInterval);
                 pollInterval = null;
             }
-            
+
             scannedNik = "";
             scannedNama = "";
 
             document.getElementById('stepConfirm').classList.add('hidden');
             document.getElementById('stepResult').classList.add('hidden');
             document.getElementById('stepScan').classList.remove('hidden');
+
+            // Pastikan tombol kembali muncul 
+            document.getElementById('btnKembaliResult').classList.remove('hidden');
         }
     </script>
 </body>

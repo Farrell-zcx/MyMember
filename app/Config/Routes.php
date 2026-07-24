@@ -19,6 +19,7 @@ $routes->get('admin/member', 'Member::index');
 
 // Route untuk Riwayat Kunjungan
 $routes->get('admin/log-kunjungan', 'LogKunjungan::index');
+$routes->get('admin/log-kunjungan/live', 'LogKunjungan::getLiveLogs');
 
 // ROUTE SEMENTARA: Reset session jika ada bug cookie lama (hapus setelah selesai)
 $routes->get('admin/session-fix', function () {

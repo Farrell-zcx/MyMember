@@ -89,6 +89,15 @@
       }
     } catch(_e) {}
     </script>
+    <style>
+        @keyframes flash-green {
+            0% { background-color: rgba(34, 197, 94, 0.4); }
+            100% { background-color: transparent; }
+        }
+        .row-highlight {
+            animation: flash-green 3s ease-out forwards;
+        }
+    </style>
 </head>
 <body class="bg-background text-on-surface">
 
@@ -267,6 +276,16 @@
 </footer>
 
 <script>
+    // Real-time polling logic
+    let knownDashboardLogIds = new Set();
+    
+    // Inisialisasi ID yang sudah ada saat halaman pertama kali dimuat
+    <?php if (!empty($recent_logs)): ?>
+        <?php foreach ($recent_logs as $log): ?>
+            knownDashboardLogIds.add("<?= esc($log['id_kunjungan']) ?>");
+        <?php endforeach; ?>
+    <?php endif; ?>
+
     function updateDashboardLive() {
         fetch('/admin/dashboard/live')
             .then(response => {
@@ -292,6 +311,12 @@
                     `;
                 } else {
                     data.recent_logs.forEach(log => {
+                        const isNew = !knownDashboardLogIds.has(log.id_kunjungan);
+                        const rowClass = isNew ? 'hover:bg-surface-container-low transition-all row-highlight' : 'hover:bg-surface-container-low transition-all';
+                        
+                        // Tandai sebagai sudah diketahui
+                        if (isNew) knownDashboardLogIds.add(log.id_kunjungan);
+
                         let statusHtml = '';
                         if (log.kuota_akhir <= 2) {
                             statusHtml = `
@@ -311,7 +336,7 @@
                         const nama = log.nama_lengkap ? escapeHtml(log.nama_lengkap) : 'Tidak Diketahui';
                         
                         const row = `
-                            <tr class="hover:bg-surface-container-low transition-all">
+                            <tr class="${rowClass}">
                                 <td class="py-3.5 px-4 font-mono font-semibold">
                                     ${log.jam}
                                 </td>
@@ -341,8 +366,8 @@
              .replace(/'/g, "&#039;");
     }
 
-    // Run every 3 seconds
-    setInterval(updateDashboardLive, 3000);
+    // Run every 2 seconds as requested by user
+    setInterval(updateDashboardLive, 2000);
 </script>
 
 </body>

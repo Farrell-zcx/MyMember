@@ -87,6 +87,15 @@
       }
     } catch(_e) {}
     </script>
+    <style>
+        @keyframes flash-green {
+            0% { background-color: rgba(34, 197, 94, 0.4); }
+            100% { background-color: transparent; }
+        }
+        .row-highlight {
+            animation: flash-green 3s ease-out forwards;
+        }
+    </style>
 </head>
 <body class="bg-background text-on-surface">
 
@@ -173,7 +182,7 @@
                                 <th class="py-3 px-4 text-center rounded-r-lg">Sisa Kuota</th>
                             </tr>
                         </thead>
-                        <tbody class="text-xs text-on-surface divide-y divide-surface-container">
+                        <tbody id="logsTableBody" class="text-xs text-on-surface divide-y divide-surface-container">
                             <?php if (empty($logs)): ?>
                                 <tr>
                                     <td colspan="5" class="py-12 text-center text-outline italic">
@@ -214,26 +223,99 @@
 <script>
     // Real-time table search functionality
     const searchInput = document.getElementById('crudSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase().trim();
-            const rows = document.querySelectorAll('tbody tr');
+    
+    function applySearchFilter() {
+        if (!searchInput) return;
+        const query = searchInput.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#logsTableBody tr');
+        
+        rows.forEach(row => {
+            if (row.querySelector('td[colspan]')) return;
             
-            rows.forEach(row => {
-                if (row.querySelector('td[colspan]')) return;
-                
-                const cells = row.getElementsByTagName('td');
-                if (cells.length < 3) return;
-                
-                const waktu = cells[0].textContent.toLowerCase();
-                const nik = cells[1].textContent.toLowerCase();
-                const nama = cells[2].textContent.toLowerCase();
-                
-                const matches = nik.includes(query) || nama.includes(query) || waktu.includes(query);
-                row.style.display = matches ? '' : 'none';
-            });
+            const cells = row.getElementsByTagName('td');
+            if (cells.length < 3) return;
+            
+            const waktu = cells[0].textContent.toLowerCase();
+            const nik = cells[1].textContent.toLowerCase();
+            const nama = cells[2].textContent.toLowerCase();
+            
+            const matches = nik.includes(query) || nama.includes(query) || waktu.includes(query);
+            row.style.display = matches ? '' : 'none';
         });
     }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', applySearchFilter);
+    }
+
+    // Real-time polling logic
+    let knownLogIds = new Set();
+    
+    // Inisialisasi ID yang sudah ada saat halaman pertama kali dimuat
+    <?php if (!empty($logs)): ?>
+        <?php foreach ($logs as $log): ?>
+            knownLogIds.add("<?= esc($log['id_kunjungan']) ?>");
+        <?php endforeach; ?>
+    <?php endif; ?>
+
+    setInterval(async () => {
+        try {
+            const response = await fetch('<?= base_url("admin/log-kunjungan/live") ?>?t=' + new Date().getTime());
+            if (response.status !== 200) return;
+            const result = await response.json();
+
+            if (result.status === 'sukses' && result.data) {
+                const logsTableBody = document.getElementById('logsTableBody');
+                let newHtml = '';
+                
+                if (result.data.length === 0) {
+                    newHtml = `<tr>
+                        <td colspan="5" class="py-12 text-center text-outline italic">
+                            Belum ada data kunjungan.
+                        </td>
+                    </tr>`;
+                } else {
+                    result.data.forEach(log => {
+                        const isNew = !knownLogIds.has(log.id_kunjungan);
+                        const rowClass = isNew ? 'hover:bg-surface-container-low transition-all row-highlight' : 'hover:bg-surface-container-low transition-all';
+                        
+                        // Tandai sebagai sudah diketahui
+                        if (isNew) knownLogIds.add(log.id_kunjungan);
+
+                        const namaLengkap = log.nama_lengkap ? log.nama_lengkap : 'Tidak Diketahui';
+                        
+                        // Menjaga agar ID tetap aman (sanitize string)
+                        const safeNik = log.NIK.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        const safeNama = namaLengkap.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        
+                        newHtml += `
+                            <tr class="${rowClass}">
+                                <td class="py-3.5 px-4 font-mono font-semibold">${log.waktu_format}</td>
+                                <td class="py-3.5 px-4 font-mono font-bold text-on-surface">${safeNik}</td>
+                                <td class="py-3.5 px-4 font-semibold">${safeNama}</td>
+                                <td class="py-3.5 px-4 text-center">
+                                    <span class="inline-flex items-center justify-center bg-surface-container-high px-2 py-1 rounded font-bold">
+                                        ${log.kuota_awal}
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-center">
+                                    <span class="inline-flex items-center justify-center bg-secondary/10 text-secondary px-2 py-1 rounded font-bold">
+                                        ${log.kuota_akhir}
+                                    </span>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+                
+                logsTableBody.innerHTML = newHtml;
+                // Aplikasikan kembali filter pencarian setelah data dirender ulang
+                applySearchFilter();
+            }
+        } catch (e) {
+            // silent fail on polling error
+        }
+    }, 2000);
 </script>
 </body>
 </html>
