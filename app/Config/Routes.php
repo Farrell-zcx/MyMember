@@ -47,3 +47,4 @@ $routes->get('ocr', 'OcrController::index');
 $routes->post('ocr/scan', 'OcrController::scan');
 $routes->post('ocr/checkin', 'OcrController::checkin');
 $routes->get('ocr/get-member', 'OcrController::getMemberByNik');
+$routes->post('ocr/update-cache', 'OcrController::updateCache');
