@@ -149,7 +149,7 @@
                 </p>
             </div>
 
-            <form id="formKtp" class="space-y-md" data-scan-url="<?= base_url('ocr/scan') ?>" data-checkin-url="<?= base_url('ocr/checkin') ?>" data-get-member-url="<?= base_url('ocr/get-member') ?>">
+            <form id="formKtp" class="space-y-md" data-scan-url="<?= base_url('ocr/scan') ?>" data-checkin-url="<?= base_url('ocr/checkin') ?>" data-get-member-url="<?= base_url('ocr/get-member') ?>" data-update-cache-url="<?= base_url('ocr/update-cache') ?>">
                 <?= csrf_field() ?>
                 <!-- hidden inputs to store scan files -->
                 <input type="file" id="inputKtp" name="ktp_image" accept="image/*" capture="environment" class="hidden">
@@ -195,6 +195,14 @@
                 <div id="emailConfirmWrapper" class="hidden border-t border-outline-variant/30 pt-md">
                     <span class="text-xs text-on-surface-variant uppercase tracking-wider block">Email</span>
                     <span id="emailConfirm" class="text-lg font-bold text-primary">-</span>
+                </div>
+                <div id="typeConfirmWrapper" class="hidden border-t border-outline-variant/30 pt-md">
+                    <span class="text-xs text-on-surface-variant uppercase tracking-wider block">Tipe Member</span>
+                    <span id="typeConfirm" class="text-lg font-bold text-primary">-</span>
+                </div>
+                <div id="expiredConfirmWrapper" class="hidden border-t border-outline-variant/30 pt-md">
+                    <span class="text-xs text-on-surface-variant uppercase tracking-wider block">Tanggal Expired</span>
+                    <span id="expiredConfirm" class="text-lg font-bold text-primary">-</span>
                 </div>
             </div>
 
@@ -278,7 +286,7 @@
             </div>
 
             <button onclick="resetToScan()" class="w-full py-3 bg-secondary text-on-secondary rounded-lg font-label-md text-label-md hover:bg-secondary-container transition-all active:scale-[0.98]">
-                Selesai
+                Kembali
             </button>
         </div>
 
@@ -294,6 +302,28 @@
     <script>
         let scannedNik = "";
         let scannedNama = "";
+        let pollInterval = null;
+        let updateCacheTimeout = null;
+
+        function triggerCacheUpdate() {
+            if (updateCacheTimeout) clearTimeout(updateCacheTimeout);
+            updateCacheTimeout = setTimeout(async () => {
+                const currentNik = document.getElementById('nikInput').value.trim();
+                const currentNama = document.getElementById('namaInput').value.trim();
+                if (currentNik !== undefined && currentNama !== undefined) {
+                    const updateUrl = document.getElementById('formKtp').dataset.updateCacheUrl;
+                    const formData = new FormData();
+                    formData.append('nik', currentNik);
+                    formData.append('nama', currentNama);
+                    
+                    const csrfToken = document.querySelector('input[name="csrf_test_name"]');
+                    if (csrfToken) formData.append(csrfToken.name, csrfToken.value);
+                    try {
+                        await fetch(updateUrl, { method: 'POST', body: formData });
+                    } catch (e) { console.error("Gagal update cache"); }
+                }
+            }, 500);
+        }
 
         // Image capture scan change listener
         document.getElementById('inputKtp').addEventListener('change', async function(e) {
@@ -326,12 +356,16 @@
                     // Hide optional wrappers initially
                     document.getElementById('phoneConfirmWrapper').classList.add('hidden');
                     document.getElementById('emailConfirmWrapper').classList.add('hidden');
+                    document.getElementById('typeConfirmWrapper').classList.add('hidden');
+                    document.getElementById('expiredConfirmWrapper').classList.add('hidden');
 
                     // Function to lookup member by NIK
                     const lookupMember = (nikToLookup) => {
                         // Reset fields first
                         document.getElementById('phoneConfirmWrapper').classList.add('hidden');
                         document.getElementById('emailConfirmWrapper').classList.add('hidden');
+                        document.getElementById('typeConfirmWrapper').classList.add('hidden');
+                        document.getElementById('expiredConfirmWrapper').classList.add('hidden');
 
                         const getMemberUrl = document.getElementById('formKtp').dataset.getMemberUrl;
                         fetch(`${getMemberUrl}?nik=${nikToLookup}`)
@@ -347,6 +381,17 @@
                                         document.getElementById('emailConfirm').innerText = m.email;
                                         document.getElementById('emailConfirmWrapper').classList.remove('hidden');
                                     }
+                                    if (m.type_member) {
+                                        document.getElementById('typeConfirm').innerText = m.type_member;
+                                        document.getElementById('typeConfirmWrapper').classList.remove('hidden');
+                                    }
+                                    if (m.tgl_expired_member) {
+                                        // Format date YYYY-MM-DD to DD-MM-YYYY or readable format
+                                        const d = new Date(m.tgl_expired_member);
+                                        const formattedDate = !isNaN(d) ? d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : m.tgl_expired_member;
+                                        document.getElementById('expiredConfirm').innerText = formattedDate;
+                                        document.getElementById('expiredConfirmWrapper').classList.remove('hidden');
+                                    }
                                 }
                             })
                             .catch(err => console.error("Error loading existing member details:", err));
@@ -357,13 +402,21 @@
 
                     // Tambahkan listener ke nikInput untuk pencarian koreksi manual dinamis
                     document.getElementById('nikInput').addEventListener('input', function(e) {
+                        triggerCacheUpdate();
                         const currentNik = e.target.value.trim();
                         if (currentNik.length >= 10) {
                             lookupMember(currentNik);
                         } else {
                             document.getElementById('phoneConfirmWrapper').classList.add('hidden');
                             document.getElementById('emailConfirmWrapper').classList.add('hidden');
+                            document.getElementById('typeConfirmWrapper').classList.add('hidden');
+                            document.getElementById('expiredConfirmWrapper').classList.add('hidden');
                         }
+                    });
+
+                    // Listener namaInput untuk update cache admin real-time
+                    document.getElementById('namaInput').addEventListener('input', function(e) {
+                        triggerCacheUpdate();
                     });
 
                     document.getElementById('stepScan').classList.add('hidden');
@@ -424,6 +477,33 @@
                     document.getElementById('resultSuccess').classList.remove('hidden');
                 } else if (result.status === 'unregistered') {
                     document.getElementById('resultUnregistered').classList.remove('hidden');
+                    
+                    // Tunggu admin/resepsionis selesai registrasi member
+                    pollInterval = setInterval(async () => {
+                        try {
+                            const getMemberUrl = document.getElementById('formKtp').dataset.getMemberUrl;
+                            const res = await fetch(`${getMemberUrl}?nik=${finalNik}`);
+                            if (res.status === 200) {
+                                const memberRes = await res.json();
+                                if (memberRes.status === 'sukses' && memberRes.exists) {
+                                    // Sudah terdaftar oleh admin
+                                    clearInterval(pollInterval);
+                                    pollInterval = null;
+                                    
+                                    // Sembunyikan layar belum terdaftar
+                                    document.getElementById('resultUnregistered').classList.add('hidden');
+                                    
+                                    // Tampilkan layar sukses dengan data terbaru
+                                    document.getElementById('successName').innerText = memberRes.data.nama_lengkap;
+                                    document.getElementById('successQuota').innerText = memberRes.data.sisa_kuota;
+                                    document.getElementById('resultSuccess').classList.remove('hidden');
+                                }
+                            }
+                        } catch (err) {
+                            // Abaikan error jaringan sementara
+                        }
+                    }, 2000); // Polling setiap 2 detik
+                    
                 } else if (result.status === 'limit') {
                     document.getElementById('resultLimit').classList.remove('hidden');
                 } else if (result.status === 'expired') {
@@ -445,6 +525,11 @@
 
         // Reset workflow back to starting scan state
         function resetToScan() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+            
             scannedNik = "";
             scannedNama = "";
 

@@ -141,7 +141,10 @@ class OcrController extends BaseController
 
         $db      = \Config\Database::connect();
         $builder = $db->table('members');
-        $member  = $builder->getWhere(['NIK' => $nik])->getRow();
+        $builder->select('members.*, master_type_member.type_member');
+        $builder->join('master_type_member', 'master_type_member.id_type = members.id_type', 'left');
+        $builder->where('members.NIK', $nik);
+        $member  = $builder->get()->getRow();
 
         if ($member) {
             return $this->response->setJSON([
@@ -152,6 +155,7 @@ class OcrController extends BaseController
                     'nomor_hp'           => $member->nomor_hp,
                     'email'              => $member->email,
                     'id_type'            => $member->id_type,
+                    'type_member'        => $member->type_member ?? '-',
                     'sisa_kuota'         => $member->sisa_kuota,
                     'tgl_expired_member' => $member->tgl_expired_member
                 ]
@@ -161,6 +165,35 @@ class OcrController extends BaseController
         return $this->response->setJSON([
             'status' => 'sukses',
             'exists' => false
+        ]);
+    }
+
+    public function updateCache()
+    {
+        $nik = $this->request->getPost('nik');
+        $nama = $this->request->getPost('nama');
+
+        if (empty($nik) || empty($nama)) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'pesan'  => 'Data NIK dan Nama tidak lengkap'
+            ]);
+        }
+
+        $result = [
+            'status' => 'sukses',
+            'data_ktp' => [
+                'nik'  => $nik,
+                'nama' => $nama
+            ]
+        ];
+
+        $cache = \Config\Services::cache();
+        $cache->save('latest_ktp_scan', $result, 60);
+
+        return $this->response->setJSON([
+            'status' => 'sukses',
+            'pesan'  => 'Cache diperbarui'
         ]);
     }
 }

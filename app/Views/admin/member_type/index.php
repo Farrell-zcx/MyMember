@@ -422,7 +422,7 @@
                 alert(result.pesan || "AI gagal membaca KTP.");
             }
         } catch (error) {
-            alert("❌ Gagal konek ke FastAPI server!");
+            alert("Gagal konek ke FastAPI server!");
         } finally {
             btnScanKtp.innerHTML = originalBtnContent;
             btnScanKtp.disabled = false;
@@ -471,7 +471,7 @@
     // Real-time Kiosk Sync (Polling)
     setInterval(async () => {
         try {
-            const response = await fetch('<?= base_url("admin/member-type/poll-scan") ?>');
+            const response = await fetch('<?= base_url("admin/member-type/poll-scan") ?>?t=' + new Date().getTime());
             if (response.status !== 200) return;
             const result = await response.json();
             
