@@ -11,6 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Liquidglass Theme -->
+    <link href="<?= base_url('css/liquidglass.css') ?>" rel="stylesheet" />
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -101,7 +103,6 @@
     <style>
         body {
             font-family: 'Hanken Grotesk', sans-serif;
-            background-color: #f7f9fb;
         }
 
         .material-symbols-outlined {
@@ -114,7 +115,7 @@
     </style>
 </head>
 
-<body class="bg-background text-on-surface min-h-screen flex flex-col justify-between">
+<body class="liquid-bg text-on-surface min-h-screen flex flex-col justify-between">
     <!-- Subtle Decorative Background Shapes -->
     <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div class="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-secondary opacity-[0.03] blur-[150px]"></div>
@@ -124,10 +125,10 @@
     <!-- Header Logo Identity -->
     <header class="relative z-10 w-full px-6 py-6 max-w-7xl mx-auto flex items-center justify-between">
         <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[32px] text-secondary font-bold" data-icon="shield_person">shield_person</span>
+            <img src="<?= base_url('images/logo.png') ?>" alt="MyMember" class="h-10 w-auto mix-blend-multiply" />
             <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">MyMember</h1>
         </div>
-        <span class="text-xs bg-surface-container-high text-on-surface-variant border border-outline-variant px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">
+        <span class="text-xs glass-panel text-on-surface-variant border border-outline-variant px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">
             Portal Selection
         </span>
     </header>
@@ -145,7 +146,7 @@
         <!-- Role Cards Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-lg w-full">
             <!-- Card 1: MEMBER CHECK-IN -->
-            <a href="<?= base_url('ocr') ?>" class="group bg-surface-container-lowest border border-outline-variant hover:border-secondary hover:ring-2 hover:ring-secondary/15 rounded-2xl p-xl card-shadow flex flex-col justify-between space-y-lg transition-all duration-300 transform hover:-translate-y-1 active:scale-[0.99] text-left">
+            <a href="<?= base_url('ocr') ?>" class="group glass-panel border border-outline-variant hover:border-secondary hover:ring-2 hover:ring-secondary/15 rounded-2xl p-xl card-shadow flex flex-col justify-between space-y-lg transition-all duration-300 transform hover:-translate-y-1 active:scale-[0.99] text-left">
                 <div class="space-y-md">
                     <!-- Icon Wrapper -->
                     <div class="w-14 h-14 bg-secondary/10 text-secondary rounded-xl flex items-center justify-center group-hover:bg-secondary group-hover:text-on-secondary transition-all">
@@ -170,7 +171,7 @@
             </a>
 
             <!-- Card 2: ADMIN PORTAL -->
-            <a href="<?= base_url('login') ?>" class="group bg-surface-container-lowest border border-outline-variant hover:border-secondary hover:ring-2 hover:ring-secondary/15 rounded-2xl p-xl card-shadow flex flex-col justify-between space-y-lg transition-all duration-300 transform hover:-translate-y-1 active:scale-[0.99] text-left">
+            <a href="<?= base_url('login') ?>" class="group glass-panel border border-outline-variant hover:border-secondary hover:ring-2 hover:ring-secondary/15 rounded-2xl p-xl card-shadow flex flex-col justify-between space-y-lg transition-all duration-300 transform hover:-translate-y-1 active:scale-[0.99] text-left">
                 <div class="space-y-md">
                     <!-- Icon Wrapper -->
                     <div class="w-14 h-14 bg-secondary/10 text-secondary rounded-xl flex items-center justify-center group-hover:bg-secondary group-hover:text-on-secondary transition-all">
