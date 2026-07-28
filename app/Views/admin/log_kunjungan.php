@@ -16,6 +16,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Liquidglass Theme -->
+    <link href="<?= base_url('css/liquidglass.css') ?>" rel="stylesheet" />
     <script id="tailwind-config">
     try {
       tailwind.config = {
@@ -97,12 +99,15 @@
         }
     </style>
 </head>
-<body class="bg-background text-on-surface">
+<body class="liquid-bg text-on-surface">
 
 <!-- SideNavBar Anchor -->
-<aside class="fixed left-0 top-0 h-full w-[280px] bg-surface dark:bg-inverse-surface border-r border-outline-variant dark:border-outline flex flex-col py-6 transition-colors duration-200 z-50">
+<aside class="fixed left-0 top-0 h-full w-[280px] glass-panel flex flex-col py-6 transition-colors duration-200 z-50 border-r-0">
     <div class="px-6 mb-10">
-        <h1 class="font-headline-xl text-headline-xl text-primary dark:text-inverse-primary tracking-tight">MyMember</h1>
+        <div class="flex items-center gap-2 mb-2">
+            <img src="<?= base_url('images/logo.png') ?>" alt="MyMember" class="h-10 w-auto mix-blend-multiply" />
+            <h1 class="font-headline-xl text-headline-xl text-primary dark:text-inverse-primary tracking-tight">MyMember</h1>
+        </div>
         <p class="text-label-sm text-on-surface-variant opacity-70">Admin Portal</p>
     </div>
     <nav class="flex-1 space-y-1 px-3">
@@ -143,11 +148,11 @@
 </aside>
 
 <!-- TopAppBar Anchor -->
-<header class="fixed top-0 right-0 h-16 ml-[280px] w-[calc(100%-280px)] bg-surface-container-lowest dark:bg-inverse-surface flex justify-between items-center px-8 shadow-sm border-b border-outline-variant dark:border-outline z-40 transition-all duration-150">
+<header class="fixed top-0 right-0 h-16 ml-[280px] w-[calc(100%-280px)] glass-panel flex justify-between items-center px-8 z-40 transition-all duration-150 border-b-0">
     <div class="flex items-center flex-1 max-w-xl">
         <div class="relative w-full">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
-            <input id="crudSearch" class="w-full bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-label-md font-label-md focus:ring-2 focus:ring-secondary/20 transition-all" placeholder="Cari riwayat kunjungan..." type="text">
+            <input id="crudSearch" class="w-full glass-input rounded-full pl-10 pr-4 py-2 text-label-md font-label-md transition-all" placeholder="Cari riwayat kunjungan..." type="text">
         </div>
     </div>
 </header>
@@ -164,7 +169,7 @@
         </div>
 
         <section class="space-y-6">
-            <div class="bg-white rounded-2xl shadow-sm border border-outline-variant p-6 overflow-hidden">
+            <div class="glass-panel rounded-2xl p-6 overflow-hidden">
                 <div class="flex justify-between items-center mb-4 border-b border-outline-variant pb-3">
                     <h2 class="font-headline-md text-headline-md text-primary uppercase tracking-wider">
                         Log Check-in Terbaru
@@ -174,7 +179,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-surface-container-low text-on-surface-variant uppercase text-[10px] font-bold tracking-wider">
+                            <tr class="glass-header text-on-surface-variant uppercase text-[10px] font-bold tracking-wider">
                                 <th class="py-3 px-4 rounded-l-lg">Waktu Check-in</th>
                                 <th class="py-3 px-4">NIK</th>
                                 <th class="py-3 px-4">Nama Lengkap</th>
@@ -191,7 +196,7 @@
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($logs as $log): ?>
-                                    <tr class="hover:bg-surface-container-low transition-all">
+                                    <tr class="glass-table-row">
                                         <td class="py-3.5 px-4 font-mono font-semibold"><?= date('d M Y H:i:s', strtotime($log['waktu_kunjungan'])) ?></td>
                                         <td class="py-3.5 px-4 font-mono font-bold text-on-surface"><?= esc($log['NIK']) ?></td>
                                         <td class="py-3.5 px-4 font-semibold"><?= esc($log['nama_lengkap'] ?? 'Tidak Diketahui') ?></td>
@@ -216,7 +221,7 @@
     </div>
 </main>
 
-<footer class="text-center py-6 text-xs text-outline border-t border-outline-variant bg-white ml-[280px]">
+<footer class="text-center py-6 text-xs text-outline glass-panel ml-[280px] border-t-0">
     &copy; 2026 MyMember Admin Dashboard.
 </footer>
 
@@ -277,7 +282,7 @@
                 } else {
                     result.data.forEach(log => {
                         const isNew = !knownLogIds.has(log.id_kunjungan);
-                        const rowClass = isNew ? 'hover:bg-surface-container-low transition-all row-highlight' : 'hover:bg-surface-container-low transition-all';
+                        const rowClass = isNew ? 'glass-table-row row-highlight' : 'glass-table-row';
                         
                         // Tandai sebagai sudah diketahui
                         if (isNew) knownLogIds.add(log.id_kunjungan);

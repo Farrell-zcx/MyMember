@@ -186,10 +186,28 @@ def nik_pipe_scanner_fix(gray, quality=None):
         cv2.THRESH_BINARY, block_size, 12
     )
 
+def nik_pipe_morph_thick(gray, quality=None):
+    # Erosi (menebalkan teks hitam) untuk huruf putus-putus
+    big = _upscale(gray, 3.0)
+    adjusted = cv2.convertScaleAbs(big, alpha=1.3, beta=10)
+    _, binary = cv2.threshold(adjusted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    kernel = np.ones((2, 2), np.uint8)
+    return cv2.erode(binary, kernel, iterations=1)
+
+def nik_pipe_morph_thin(gray, quality=None):
+    # Dilasi (menipiskan teks hitam) untuk huruf yang meluber (bleeding)
+    big = _upscale(gray, 3.0)
+    adjusted = cv2.convertScaleAbs(big, alpha=1.3, beta=10)
+    _, binary = cv2.threshold(adjusted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    kernel = np.ones((2, 2), np.uint8)
+    return cv2.dilate(binary, kernel, iterations=1)
+
 NIK_PIPELINES = [
     nik_pipe_gentle, 
     nik_pipe_sharp_adaptive,
-    nik_pipe_scanner_fix
+    nik_pipe_scanner_fix,
+    nik_pipe_morph_thick,
+    nik_pipe_morph_thin
 ]
 
 
@@ -235,9 +253,25 @@ def text_pipe_adaptive_sharpen(gray, quality=None):
         cv2.THRESH_BINARY, block_size, 15
     )
 
+def text_pipe_morph_thick(gray, quality=None):
+    big = _upscale(gray, 2.5)
+    adjusted = cv2.convertScaleAbs(big, alpha=1.4, beta=15)
+    _, binary = cv2.threshold(adjusted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    kernel = np.ones((2, 2), np.uint8)
+    return cv2.erode(binary, kernel, iterations=1)
+
+def text_pipe_morph_thin(gray, quality=None):
+    big = _upscale(gray, 2.5)
+    adjusted = cv2.convertScaleAbs(big, alpha=1.4, beta=15)
+    _, binary = cv2.threshold(adjusted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    kernel = np.ones((2, 2), np.uint8)
+    return cv2.dilate(binary, kernel, iterations=1)
+
 TEXT_PIPELINES = [
     text_pipe_standard, 
-    text_pipe_scanner_fix
+    text_pipe_scanner_fix,
+    text_pipe_morph_thick,
+    text_pipe_morph_thin
 ]
 
 def _is_valid_nik(nik):
@@ -640,21 +674,26 @@ def _parse_nama(text):
                 
             raw = match.group(2).strip()
             
-            # Jika NAMA ada di baris yang sama (setelah titik dua)
-            if len(raw) > 3 and not re.search(r'TEMPAT|LENGKAP|LAHIR|BLOOD|GOL|DARAH', raw):
-                cleaned = re.sub(r'[^A-Z\s\'.]', '', raw).strip()
-                words = [w for w in cleaned.split() if len(w) >= 2 or w in ('M','R','A','S','H','I')]
+            def clean_nama_string(raw_str):
+                # Reverse correction (menyelamatkan huruf yang terbaca sebagai angka)
+                fixed_str = raw_str.replace('0', 'O').replace('1', 'I').replace('5', 'S').replace('8', 'B')
+                # Hanya sisakan A-Z, spasi, titik, dan petik
+                cleaned = re.sub(r'[^A-Z\s\'.]', '', fixed_str).strip()
+                # Longgarkan filter, izinkan huruf tunggal (misal singkatan M., B.)
+                words = [w for w in cleaned.split() if len(w) >= 1]
                 if words:
                     return " ".join(words)
+                return None
+            
+            # Jika NAMA ada di baris yang sama (setelah titik dua)
+            if len(raw) > 3 and not re.search(r'TEMPAT|LENGKAP|LAHIR|BLOOD|GOL|DARAH', raw):
+                return clean_nama_string(raw)
 
             # Jika NAMA ada di baris bawahnya
             if i + 1 < len(lines):
                 next_upper = lines[i + 1].strip().upper()
                 if not re.search(r'TEMPAT|LAHIR|KELAMIN|AGAMA|ALAMAT|STATUS|PEKERJAAN|WARGA|NIK|RT|RW|KEWARGANEGARAAN', next_upper):
-                    cleaned = re.sub(r'[^A-Z\s\'.]', '', next_upper).strip()
-                    words = [w for w in cleaned.split() if len(w) >= 2 or w in ('M','R','A','S','H','I')]
-                    if words:
-                        return " ".join(words)
+                    return clean_nama_string(next_upper)
     return None
 
 
@@ -695,17 +734,18 @@ def extract_fulltext(gray):
             is_female = True
             break
 
-    best_nama = None
     best_dob = None
     best_provinsi = None
     best_text = ""
+    nama_candidates = []
 
     for text in results:
-        if not best_nama:
-            nama = _parse_nama(text)
-            if nama:
-                best_nama = nama
+        nama = _parse_nama(text)
+        if nama:
+            nama_candidates.append(nama)
+            if not best_text:
                 best_text = text
+                
         if not best_dob:
             dob = _extract_dob_digits(text, is_female=is_female)
             if dob:
@@ -714,10 +754,15 @@ def extract_fulltext(gray):
             prov = _extract_provinsi_code(text)
             if prov:
                 best_provinsi = prov
-        if best_nama and best_dob and best_provinsi:
-            break
 
-    return best_nama or "Tidak terdeteksi", best_dob, best_provinsi, best_text
+    # Consensus Voting untuk NAMA
+    if nama_candidates:
+        votes = Counter(nama_candidates)
+        best_nama = votes.most_common(1)[0][0]
+    else:
+        best_nama = "Tidak terdeteksi"
+
+    return best_nama, best_dob, best_provinsi, best_text
 
 def deskew_by_text(gray):
     """
@@ -792,7 +837,10 @@ async def extract_ktp(ktp_image: UploadFile = File(...)):
         if img is None:
             return {"status": "error", "pesan": "File gambar tidak valid atau corrupt."}
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # Menggunakan Blue Channel agar background KTP (biru) menjadi sangat putih/terang
+        # Teks hitam (NIK & Nama) akan tetap hitam, menghasilkan kontras maksimal
+        b, g, r = cv2.split(img)
+        gray = b
 
         # Deteksi dan potong area kartu KTP untuk mereduksi noise latar belakang
         card_gray, detected = detect_and_crop_ktp(gray)

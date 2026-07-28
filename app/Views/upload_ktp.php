@@ -15,6 +15,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet" />
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Liquidglass Theme -->
+    <link href="<?= base_url('css/liquidglass.css') ?>" rel="stylesheet" />
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -118,7 +120,7 @@
     </style>
 </head>
 
-<body class="bg-background text-on-surface min-h-screen flex flex-col justify-between">
+<body class="liquid-bg text-on-surface min-h-screen flex flex-col justify-between">
 
     <!-- Subtle Decorative Background Shapes -->
     <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
@@ -141,7 +143,7 @@
     <main class="relative z-10 flex-grow flex items-center justify-center px-margin-mobile py-xl w-full max-w-xl mx-auto">
 
         <!-- STEP 1: SCAN CARD -->
-        <div id="stepScan" class="w-full bg-white border border-outline-variant rounded-2xl p-xl card-shadow text-center space-y-xl transition-all duration-300">
+        <div id="stepScan" class="w-full glass-panel rounded-2xl p-xl text-center space-y-xl transition-all duration-300">
             <div class="space-y-sm">
                 <h2 class="font-headline-xl text-headline-xl text-primary tracking-tight">Selamat Datang</h2>
                 <p class="font-body-md text-body-md text-on-surface-variant max-w-sm mx-auto">
@@ -170,7 +172,7 @@
         </div>
 
         <!-- STEP 2: CONFIRMATION CARD -->
-        <div id="stepConfirm" class="hidden w-full bg-white border border-outline-variant rounded-2xl p-xl card-shadow space-y-xl transition-all duration-300">
+        <div id="stepConfirm" class="hidden w-full glass-panel rounded-2xl p-xl space-y-xl transition-all duration-300">
             <div class="text-center space-y-xs">
                 <span class="material-symbols-outlined text-[48px] text-secondary" data-icon="fact_check">fact_check</span>
                 <h2 class="font-headline-xl text-headline-xl text-primary tracking-tight">Konfirmasi Data</h2>
@@ -179,14 +181,14 @@
                 </p>
             </div>
 
-            <div class="bg-surface-container-low border border-outline-variant rounded-xl p-md space-y-md font-mono">
+            <div class="glass-table-wrapper rounded-xl p-md space-y-md font-mono">
                 <div>
                     <span class="text-xs text-on-surface-variant uppercase tracking-wider block mb-1">NIK <span class="text-[10px] lowercase text-secondary">(Silakan edit jika salah)</span></span>
-                    <input type="text" id="nikInput" class="w-full bg-white border border-outline-variant rounded-md px-3 py-2 text-lg font-bold text-primary focus:ring-2 focus:ring-secondary focus:border-secondary transition-all" value="">
+                    <input type="text" id="nikInput" class="w-full glass-input rounded-md px-3 py-2 text-lg font-bold transition-all" value="">
                 </div>
-                <div class="border-t border-outline-variant/30 pt-md">
+                <div class="border-t border-white/30 pt-md">
                     <span class="text-xs text-on-surface-variant uppercase tracking-wider block mb-1">Nama Lengkap <span class="text-[10px] lowercase text-secondary">(Silakan edit jika salah)</span></span>
-                    <input type="text" id="namaInput" class="w-full bg-white border border-outline-variant rounded-md px-3 py-2 text-lg font-bold text-primary uppercase focus:ring-2 focus:ring-secondary focus:border-secondary transition-all" value="">
+                    <input type="text" id="namaInput" class="w-full glass-input rounded-md px-3 py-2 text-lg font-bold uppercase transition-all" value="">
                 </div>
                 <div id="phoneConfirmWrapper" class="hidden border-t border-outline-variant/30 pt-md">
                     <span class="text-xs text-on-surface-variant uppercase tracking-wider block">Nomor HP</span>
@@ -218,7 +220,7 @@
         </div>
 
         <!-- STEP 3: RESULT CARD -->
-        <div id="stepResult" class="hidden w-full bg-white border border-outline-variant rounded-2xl p-xl card-shadow text-center space-y-xl transition-all duration-300">
+        <div id="stepResult" class="hidden w-full glass-panel rounded-2xl p-xl text-center space-y-xl transition-all duration-300">
 
             <!-- SUCCESS STATUS -->
             <div id="resultSuccess" class="hidden space-y-lg">
@@ -252,7 +254,7 @@
                         NIK Anda belum terdaftar sebagai member di sistem kami.
                     </p>
                 </div>
-                <div class="p-md bg-surface-container-low rounded-xl border border-outline-variant flex flex-col items-center justify-center space-y-sm">
+                <div class="p-md glass-table-wrapper rounded-xl flex flex-col items-center justify-center space-y-sm">
                     <svg class="animate-spin h-8 w-8 text-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -276,6 +278,20 @@
                 <div class="p-md bg-amber-50 rounded-xl border border-amber-200 text-amber-800">
                     <p class="text-sm font-semibold">Silakan hubungi petugas resepsionis untuk melakukan pengisian ulang (top-up) kuota.</p>
                 </div>
+                <div class="glass-table-wrapper rounded-xl p-md space-y-sm text-left">
+                    <div>
+                        <span class="text-xs text-on-surface-variant uppercase tracking-wider block">Nama Lengkap</span>
+                        <span id="limitName" class="text-md font-bold text-primary uppercase">-</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-on-surface-variant uppercase tracking-wider block">NIK</span>
+                        <span id="limitNik" class="text-md font-bold text-primary">-</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-on-surface-variant uppercase tracking-wider block">Sisa Kuota</span>
+                        <span id="limitQuota" class="text-md font-bold text-primary">-</span>
+                    </div>
+                </div>
             </div>
 
             <!-- FAILURE STATUS (EXPIRED) -->
@@ -291,6 +307,20 @@
                 </div>
                 <div class="p-md bg-red-50 rounded-xl border border-red-200 text-red-800">
                     <p class="text-sm font-semibold">Silakan lakukan perpanjangan keanggotaan di meja resepsionis.</p>
+                </div>
+                <div class="glass-table-wrapper rounded-xl p-md space-y-sm text-left">
+                    <div>
+                        <span class="text-xs text-on-surface-variant uppercase tracking-wider block">Nama Lengkap</span>
+                        <span id="expiredName" class="text-md font-bold text-primary uppercase">-</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-on-surface-variant uppercase tracking-wider block">NIK</span>
+                        <span id="expiredNik" class="text-md font-bold text-primary">-</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-on-surface-variant uppercase tracking-wider block">Tanggal Expired</span>
+                        <span id="expiredDate" class="text-md font-bold text-primary">-</span>
+                    </div>
                 </div>
             </div>
 
@@ -528,9 +558,25 @@
                     }, 2000); // Polling setiap 2 detik
 
                 } else if (result.status === 'limit') {
+                    if (result.data) {
+                        document.getElementById('limitName').innerText = result.data.nama_lengkap;
+                        document.getElementById('limitNik').innerText = result.data.NIK;
+                        document.getElementById('limitQuota').innerText = result.data.sisa_kuota;
+                    }
                     document.getElementById('resultLimit').classList.remove('hidden');
                     document.getElementById('btnKembaliResult').classList.remove('hidden');
                 } else if (result.status === 'expired') {
+                    if (result.data) {
+                        document.getElementById('expiredName').innerText = result.data.nama_lengkap;
+                        document.getElementById('expiredNik').innerText = result.data.NIK;
+                        const d = new Date(result.data.tgl_expired_member);
+                        const formattedDate = !isNaN(d) ? d.toLocaleDateString('id-ID', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric'
+                        }) : result.data.tgl_expired_member;
+                        document.getElementById('expiredDate').innerText = formattedDate;
+                    }
                     document.getElementById('resultExpired').classList.remove('hidden');
                     document.getElementById('btnKembaliResult').classList.remove('hidden');
                 } else {

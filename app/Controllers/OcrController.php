@@ -87,7 +87,13 @@ class OcrController extends BaseController
             if (!empty($member->tgl_expired_member) && strtotime($member->tgl_expired_member) < time()) {
                 return $this->response->setJSON([
                     'status' => 'expired',
-                    'pesan'  => 'Masa aktif member Anda telah habis! Silakan perpanjang di resepsionis.'
+                    'pesan'  => 'Masa aktif member Anda telah habis! Silakan perpanjang di resepsionis.',
+                    'data'   => [
+                        'nama_lengkap'       => $member->nama_lengkap,
+                        'NIK'                => $member->NIK,
+                        'sisa_kuota'         => $member->sisa_kuota,
+                        'tgl_expired_member' => $member->tgl_expired_member
+                    ]
                 ]);
             }
 
@@ -117,7 +123,13 @@ class OcrController extends BaseController
             } else {
                 return $this->response->setJSON([
                     'status' => 'limit',
-                    'pesan'  => 'Kuota kunjungan Anda sudah habis! Silakan lakukan isi ulang di resepsionis.'
+                    'pesan'  => 'Kuota kunjungan Anda sudah habis! Silakan lakukan isi ulang di resepsionis.',
+                    'data'   => [
+                        'nama_lengkap'       => $member->nama_lengkap,
+                        'NIK'                => $member->NIK,
+                        'sisa_kuota'         => $member->sisa_kuota,
+                        'tgl_expired_member' => $member->tgl_expired_member
+                    ]
                 ]);
             }
         } else {

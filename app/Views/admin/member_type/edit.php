@@ -17,6 +17,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Liquidglass Theme -->
+    <link href="<?= base_url('css/liquidglass.css') ?>" rel="stylesheet" />
     <script id="tailwind-config">
     try {
       tailwind.config = {
@@ -119,12 +121,15 @@
     </script>
     <meta charset="utf-8">
 </head>
-<body class="bg-background text-on-surface">
+<body class="liquid-bg text-on-surface">
 
 <!-- SideNavBar Anchor -->
-<aside class="fixed left-0 top-0 h-full w-[280px] bg-surface dark:bg-inverse-surface border-r border-outline-variant dark:border-outline flex flex-col py-6 transition-colors duration-200 z-50">
+<aside class="fixed left-0 top-0 h-full w-[280px] glass-panel flex flex-col py-6 transition-colors duration-200 z-50 border-r-0">
     <div class="px-6 mb-10">
-        <h1 class="font-headline-xl text-headline-xl text-primary dark:text-inverse-primary tracking-tight">MyMember</h1>
+        <div class="flex items-center gap-2 mb-2">
+            <img src="<?= base_url('images/logo.png') ?>" alt="MyMember" class="h-10 w-auto mix-blend-multiply" />
+            <h1 class="font-headline-xl text-headline-xl text-primary dark:text-inverse-primary tracking-tight">MyMember</h1>
+        </div>
         <p class="text-label-sm text-on-surface-variant opacity-70">Admin Portal</p>
     </div>
     <nav class="flex-1 space-y-1 px-3">
@@ -170,7 +175,7 @@
 </aside>
 
 <!-- TopAppBar Anchor -->
-<header class="fixed top-0 right-0 h-16 ml-[280px] w-[calc(100%-280px)] bg-surface-container-lowest dark:bg-inverse-surface flex justify-between items-center px-margin-desktop shadow-sm border-b border-outline-variant dark:border-outline z-40 transition-all duration-150">
+<header class="fixed top-0 right-0 h-16 ml-[280px] w-[calc(100%-280px)] glass-panel flex justify-between items-center px-margin-desktop z-40 transition-all duration-150 border-b-0">
     <div class="flex items-center flex-1 max-w-xl">
         <h2 class="font-headline-md text-headline-md text-primary">Edit Member Type</h2>
     </div>
@@ -192,7 +197,7 @@
 <!-- Main Canvas -->
 <main class="ml-[280px] pt-16 min-h-screen flex items-center justify-center">
     <div class="p-margin-desktop w-full max-w-[600px]">
-        <div class="bg-white rounded-2xl shadow-sm border border-outline-variant p-xl">
+        <div class="glass-panel rounded-2xl p-xl">
             <h3 class="font-headline-xl text-headline-xl text-primary mb-6">Edit Tipe Member</h3>
             
             <form action="<?= base_url('admin/member-type/update/' . $type['id_type']) ?>" method="POST" class="space-y-lg">
@@ -201,19 +206,19 @@
                 <div class="space-y-xs">
                     <label class="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">Nama Tipe Member</label>
                     <input type="text" name="type_member" value="<?= esc($type['type_member']) ?>" required
-                        class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/20 focus:border-secondary focus:bg-white transition-all">
+                        class="w-full glass-input rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none transition-all">
                 </div>
 
                 <div class="space-y-xs">
                     <label class="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">Kuota Kunjungan (Default)</label>
                     <input type="number" name="kuota_kunjungan" value="<?= esc($type['kuota_kunjungan']) ?>" required
-                        class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/20 focus:border-secondary focus:bg-white transition-all">
+                        class="w-full glass-input rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none transition-all">
                 </div>
 
                 <div class="space-y-xs">
                     <label class="block text-xs font-semibold text-on-surface-variant mb-1 uppercase tracking-wider">Deskripsi Benefit</label>
                     <textarea name="deskripsi_benefit" rows="4"
-                        class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/20 focus:border-secondary focus:bg-white transition-all"><?= esc($type['deskripsi_benefit']) ?></textarea>
+                        class="w-full glass-input rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none transition-all"><?= esc($type['deskripsi_benefit']) ?></textarea>
                 </div>
 
                 <div class="flex justify-between gap-md pt-4">
@@ -229,7 +234,7 @@
     </div>
 </main>
 
-<footer class="text-center py-6 text-xs text-outline border-t border-outline-variant bg-white ml-[280px]">
+<footer class="text-center py-6 text-xs text-outline glass-panel ml-[280px] border-t-0">
     &copy; 2026 MyMember Admin Dashboard.
 </footer>
 

@@ -11,6 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Liquidglass Theme -->
+    <link href="<?= base_url('css/liquidglass.css') ?>" rel="stylesheet" />
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -142,7 +144,6 @@
     <style>
         body {
             font-family: 'Hanken Grotesk', sans-serif;
-            background-color: #f7f9fb;
         }
 
         .material-symbols-outlined {
@@ -160,7 +161,7 @@
     </style>
 </head>
 
-<body class="bg-background text-on-surface min-h-screen flex flex-col">
+<body class="liquid-bg text-on-surface min-h-screen flex flex-col">
     <!-- Subtle Decorative Background (Abstract Modern Patterns) -->
     <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div class="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-secondary opacity-[0.03] blur-[120px]"></div>
@@ -177,11 +178,11 @@
         </div>
         <div class="w-full max-w-[440px]">
             <!-- Brand Identity Header -->
-            <div class="text-center mb-xl">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-white border border-outline-variant rounded-xl mb-md login-card-shadow">
-                    <span class="material-symbols-outlined text-[32px] text-secondary" data-icon="shield_person">shield_person</span>
+            <div class="text-center mb-xl flex flex-col items-center">
+                <div class="flex items-center gap-3 mb-2">
+                    <img src="<?= base_url('images/logo.png') ?>" alt="MyMember" class="h-16 w-auto mix-blend-multiply" />
+                    <h1 class="font-headline-xl text-headline-xl text-primary tracking-tight">MyMember</h1>
                 </div>
-                <h1 class="font-headline-xl text-headline-xl text-primary tracking-tight">MyMember</h1>
                 <p class="font-body-md text-body-md text-on-surface-variant mt-xs">Admin Portal Access</p>
             </div>
 
@@ -203,7 +204,7 @@
             <?php endif; ?>
 
             <!-- Login Card -->
-            <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-xl login-card-shadow">
+            <div class="glass-panel rounded-xl p-xl login-card-shadow">
                 <form action="/login/process" class="space-y-lg" method="POST">
                     <?= csrf_field() ?>
                     <!-- Admin Username Field -->
@@ -215,7 +216,7 @@
                             <div class="absolute inset-y-0 left-0 pl-md flex items-center pointer-events-none text-on-surface-variant group-focus-within:text-secondary transition-colors">
                                 <span class="material-symbols-outlined text-[20px]" data-icon="person">person</span>
                             </div>
-                            <input class="w-full h-[52px] pl-[48px] pr-md bg-white border border-outline-variant rounded-lg font-body-md text-body-md focus:ring-2 focus:ring-secondary/10 focus:border-secondary transition-all outline-none" id="username" name="username" placeholder="Username" required="" type="text" autocomplete="off" />
+                            <input class="w-full h-[52px] pl-[48px] pr-md glass-input rounded-lg font-body-md text-body-md focus:outline-none transition-all outline-none" id="username" name="username" placeholder="Username" required="" type="text" autocomplete="off" />
                         </div>
                     </div>
                     <!-- Password Field -->
@@ -232,7 +233,7 @@
                             <div class="absolute inset-y-0 left-0 pl-md flex items-center pointer-events-none text-on-surface-variant group-focus-within:text-secondary transition-colors">
                                 <span class="material-symbols-outlined text-[20px]" data-icon="lock">lock</span>
                             </div>
-                            <input class="w-full h-[52px] pl-[48px] pr-md bg-white border border-outline-variant rounded-lg font-body-md text-body-md focus:ring-2 focus:ring-secondary/10 focus:border-secondary transition-all outline-none" id="password" name="password" placeholder="••••••••" required="" type="password" />
+                            <input class="w-full h-[52px] pl-[48px] pr-md glass-input rounded-lg font-body-md text-body-md focus:outline-none transition-all outline-none" id="password" name="password" placeholder="••••••••" required="" type="password" />
                         </div>
                     </div>
                     <!-- Remember Me (Utility Toggle) -->
