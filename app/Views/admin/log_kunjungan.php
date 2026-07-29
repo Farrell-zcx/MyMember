@@ -131,6 +131,11 @@
             <span class="material-symbols-outlined mr-4" data-icon="history" style="font-variation-settings: 'FILL' 1;">history</span>
             <span class="">Riwayat Kunjungan</span>
         </a>
+        <!-- Kiosk Controller -->
+        <a href="/admin/kiosk" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
+            <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="aod">aod</span>
+            <span class="">Kiosk Controller</span>
+        </a>
         <!-- Logout -->
         <a href="/logout" class="flex items-center px-4 py-3 mt-4 transition-colors duration-200 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-body-md text-body-md group">
             <span class="material-symbols-outlined mr-4 group-hover:text-rose-700 transition-colors" data-icon="logout">logout</span>
@@ -183,6 +188,7 @@
                                 <th class="py-3 px-4 rounded-l-lg">Waktu Check-in</th>
                                 <th class="py-3 px-4">NIK</th>
                                 <th class="py-3 px-4">Nama Lengkap</th>
+                                <th class="py-3 px-4">Tipe Member</th>
                                 <th class="py-3 px-4 text-center">Kuota Awal</th>
                                 <th class="py-3 px-4 text-center rounded-r-lg">Sisa Kuota</th>
                             </tr>
@@ -200,6 +206,7 @@
                                         <td class="py-3.5 px-4 font-mono font-semibold"><?= date('d M Y H:i:s', strtotime($log['waktu_kunjungan'])) ?></td>
                                         <td class="py-3.5 px-4 font-mono font-bold text-on-surface"><?= esc($log['NIK']) ?></td>
                                         <td class="py-3.5 px-4 font-semibold"><?= esc($log['nama_lengkap'] ?? 'Tidak Diketahui') ?></td>
+                                        <td class="py-3.5 px-4 font-semibold"><?= esc($log['type_member'] ?? '-') ?></td>
                                         <td class="py-3.5 px-4 text-center">
                                             <span class="inline-flex items-center justify-center bg-surface-container-high px-2 py-1 rounded font-bold">
                                                 <?= esc($log['kuota_awal']) ?>
@@ -238,13 +245,14 @@
             if (row.querySelector('td[colspan]')) return;
             
             const cells = row.getElementsByTagName('td');
-            if (cells.length < 3) return;
+            if (cells.length < 4) return;
             
             const waktu = cells[0].textContent.toLowerCase();
             const nik = cells[1].textContent.toLowerCase();
             const nama = cells[2].textContent.toLowerCase();
+            const tipe = cells[3].textContent.toLowerCase();
             
-            const matches = nik.includes(query) || nama.includes(query) || waktu.includes(query);
+            const matches = nik.includes(query) || nama.includes(query) || waktu.includes(query) || tipe.includes(query);
             row.style.display = matches ? '' : 'none';
         });
     }
@@ -288,16 +296,19 @@
                         if (isNew) knownLogIds.add(log.id_kunjungan);
 
                         const namaLengkap = log.nama_lengkap ? log.nama_lengkap : 'Tidak Diketahui';
+                        const typeMember = log.type_member ? log.type_member : '-';
                         
                         // Menjaga agar ID tetap aman (sanitize string)
                         const safeNik = log.NIK.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                         const safeNama = namaLengkap.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        const safeTipe = typeMember.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                         
                         newHtml += `
                             <tr class="${rowClass}">
                                 <td class="py-3.5 px-4 font-mono font-semibold">${log.waktu_format}</td>
                                 <td class="py-3.5 px-4 font-mono font-bold text-on-surface">${safeNik}</td>
                                 <td class="py-3.5 px-4 font-semibold">${safeNama}</td>
+                                <td class="py-3.5 px-4 font-semibold">${safeTipe}</td>
                                 <td class="py-3.5 px-4 text-center">
                                     <span class="inline-flex items-center justify-center bg-surface-container-high px-2 py-1 rounded font-bold">
                                         ${log.kuota_awal}

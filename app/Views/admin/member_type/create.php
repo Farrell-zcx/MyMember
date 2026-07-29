@@ -150,12 +150,17 @@
             <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="assessment">assessment</span>
             <span class="">Reports</span>
         </a>
-        <!-- Settings -->
-        <a href="#" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
-            <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="settings">settings</span>
-            <span class="">Settings</span>
-        </a>
-        <!-- Logout -->
+            <!-- Riwayat Kunjungan -->
+            <a href="/admin/log-kunjungan" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
+                <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="history">history</span>
+                <span class="">Riwayat Kunjungan</span>
+            </a>
+            <!-- Kiosk Controller -->
+            <a href="/admin/kiosk" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
+                <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="aod">aod</span>
+                <span class="">Kiosk Controller</span>
+            </a>
+            <!-- Logout -->
         <a href="/logout" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-body-md text-body-md group">
             <span class="material-symbols-outlined mr-4 group-hover:text-rose-700 transition-colors" data-icon="logout">logout</span>
             <span class="">Logout</span>
