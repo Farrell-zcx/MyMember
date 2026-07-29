@@ -21,7 +21,7 @@ $routes->get('admin/member', 'Member::index');
 $routes->get('admin/log-kunjungan', 'LogKunjungan::index');
 $routes->get('admin/log-kunjungan/live', 'LogKunjungan::getLiveLogs');
 
-// ROUTE SEMENTARA: Reset session jika ada bug cookie lama (hapus setelah selesai)
+// ROUTE SEMENTARA: Reset session jika ada bug cookie lama 
 $routes->get('admin/session-fix', function () {
     session()->destroy();
     return redirect()->to('/login');
@@ -49,3 +49,14 @@ $routes->post('ocr/scan', 'OcrController::scan');
 $routes->post('ocr/checkin', 'OcrController::checkin');
 $routes->get('ocr/get-member', 'OcrController::getMemberByNik');
 $routes->post('ocr/update-cache', 'OcrController::updateCache');
+
+// Kiosk View 
+$routes->get('kiosk', 'Kiosk::index');
+$routes->get('kiosk/checkTrigger', 'Kiosk::checkTrigger');
+$routes->post('kiosk/processOcr', 'Kiosk::processOcr');
+$routes->post('kiosk/streamFrame', 'Kiosk::streamFrame');
+
+// Admin Kiosk Controller 
+$routes->get('admin/kiosk', 'AdminKiosk::index');
+$routes->post('admin/kiosk/trigger', 'AdminKiosk::trigger');
+$routes->get('admin/kiosk/getStreamFrame', 'AdminKiosk::getStreamFrame');

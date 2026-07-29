@@ -143,32 +143,53 @@
     <main class="relative z-10 flex-grow flex items-center justify-center px-margin-mobile py-xl w-full max-w-xl mx-auto">
 
         <!-- STEP 1: SCAN CARD -->
-        <div id="stepScan" class="w-full glass-panel rounded-2xl p-xl text-center space-y-xl transition-all duration-300">
-            <div class="space-y-sm">
-                <h2 class="font-headline-xl text-headline-xl text-primary tracking-tight">Selamat Datang</h2>
+        <div id="stepScan" class="w-full glass-panel rounded-2xl p-xl text-center space-y-md transition-all duration-300">
+            <div class="space-y-xs">
+                <h2 class="font-headline-xl text-headline-xl text-primary tracking-tight">Pindai KTP Anda</h2>
                 <p class="font-body-md text-body-md text-on-surface-variant max-w-sm mx-auto">
-                    Silakan ketuk tombol di bawah ini untuk memindai KTP Anda secara otomatis.
+                    Posisikan KTP Anda di dalam kotak, sistem akan memindai secara otomatis.
                 </p>
             </div>
 
-            <form id="formKtp" class="space-y-md" data-scan-url="<?= base_url('ocr/scan') ?>" data-checkin-url="<?= base_url('ocr/checkin') ?>" data-get-member-url="<?= base_url('ocr/get-member') ?>" data-update-cache-url="<?= base_url('ocr/update-cache') ?>">
-                <?= csrf_field() ?>
-                <!-- hidden inputs to store scan files -->
-                <input type="file" id="inputKtp" name="ktp_image" accept="image/*" capture="environment" class="hidden">
+            <!-- CAMERA CONTAINER -->
+            <div id="cameraContainer" class="relative w-full max-w-md mx-auto aspect-[1.58] bg-black rounded-xl overflow-hidden shadow-inner border-2 border-outline-variant">
+                <video id="ktpVideo" class="absolute inset-0 w-full h-full object-cover" autoplay playsinline muted></video>
+                <div id="loading" class="absolute inset-0 flex items-center justify-center bg-black/80 text-white text-center p-4 z-20 hidden text-sm font-medium"></div>
+                <!-- Overlay with dashed border guide (Camera Cutout) -->
+                <div class="absolute inset-0 pointer-events-none z-10 flex items-center justify-center overflow-hidden rounded-xl">
+                    <div class="w-[80%] h-[65%] border-2 border-dashed border-secondary/80 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]"></div>
+                </div>
 
-                <button type="button" onclick="document.getElementById('inputKtp').click()" class="mx-auto w-36 h-36 rounded-full bg-secondary text-on-secondary hover:bg-secondary-container hover:shadow-xl transition-all flex flex-col items-center justify-center gap-xs active:scale-95 group">
-                    <span class="material-symbols-outlined text-[48px] group-hover:scale-110 transition-transform" data-icon="photo_camera">photo_camera</span>
-                    <span class="text-xs font-bold uppercase tracking-wider">Scan KTP</span>
+                <!-- Scanning Overlay (Large) -->
+                <div id="scanningBigOverlay" class="absolute inset-0 bg-black/60 z-30 hidden flex-col items-center justify-center text-white backdrop-blur-sm">
+                    <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <h2 class="text-3xl font-bold tracking-wider animate-pulse">SCANNING...</h2>
+                    <p class="mt-2 text-sm text-white/80 text-center px-4">Sistem sedang mengekstrak data KTP Anda</p>
+                </div>
+
+                <!-- Smart Scan Status Indicator (Floating) -->
+                <div id="scanStatus" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 border border-white/20 shadow-lg z-30 transition-all duration-300">
+                    <span id="scanStatusIcon" class="w-3 h-3 rounded-full bg-yellow-400 animate-pulse"></span>
+                    <span id="scanStatusText" class="text-white text-xs font-bold tracking-wide">Mencari bingkai KTP...</span>
+                </div>
+
+                <!-- Switch Camera Button -->
+                <button type="button" id="btnSwitchCamera" class="hidden absolute top-2 right-2 bg-black/50 hover:bg-black/80 text-white p-2 rounded-full z-20 backdrop-blur-sm transition-all" title="Ganti Kamera">
+                    <span class="material-symbols-outlined text-[20px]" data-icon="cameraswitch">cameraswitch</span>
                 </button>
+            </div>
+
+            <canvas id="ktpCanvas" class="hidden"></canvas>
+
+            <form id="formKtp" data-scan-url="<?= base_url('ocr/scan') ?>" data-checkin-url="<?= base_url('ocr/checkin') ?>" data-get-member-url="<?= base_url('ocr/get-member') ?>" data-update-cache-url="<?= base_url('ocr/update-cache') ?>">
+                <?= csrf_field() ?>
+                <!-- Fallback file input if camera fails -->
+                <input type="file" id="inputKtp" name="ktp_image" accept="image/*" capture="environment" class="hidden">
             </form>
 
-            <div id="loading" class="hidden text-secondary font-medium flex items-center justify-center gap-xs text-body-sm">
-                <svg class="animate-spin h-5 w-5 text-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Mengekstraksi data KTP Anda...</span>
-            </div>
+            <button type="button" id="btnFallbackCamera" onclick="document.getElementById('inputKtp').click()" class="hidden mx-auto mt-4 px-4 py-2 border border-outline-variant text-outline font-semibold rounded-lg text-sm hover:bg-surface-container-low transition-all">
+                Kamera Tidak Merespon? Gunakan Upload Manual
+            </button>
         </div>
 
         <!-- STEP 2: CONFIRMATION CARD -->
@@ -343,6 +364,23 @@
         let scannedNama = "";
         let pollInterval = null;
         let updateCacheTimeout = null;
+        let videoStream = null;
+        let scanInterval = null;
+        let liveStreamInterval = null;
+        let isScanning = false;
+        let videoDevices = [];
+        let currentDeviceIndex = 0;
+
+        function fixUrl(url) {
+            try {
+                const parsed = new URL(url);
+                parsed.protocol = window.location.protocol;
+                parsed.host = window.location.host;
+                return parsed.toString();
+            } catch (e) {
+                return url;
+            }
+        }
 
         function triggerCacheUpdate() {
             if (updateCacheTimeout) clearTimeout(updateCacheTimeout);
@@ -350,7 +388,7 @@
                 const currentNik = document.getElementById('nikInput').value.trim();
                 const currentNama = document.getElementById('namaInput').value.trim();
                 if (currentNik !== undefined && currentNama !== undefined) {
-                    const updateUrl = document.getElementById('formKtp').dataset.updateCacheUrl;
+                    const updateUrl = fixUrl(document.getElementById('formKtp').dataset.updateCacheUrl);
                     const formData = new FormData();
                     formData.append('nik', currentNik);
                     formData.append('nama', currentNama);
@@ -369,116 +407,503 @@
             }, 500);
         }
 
-        // Image capture scan change listener
+        const videoElement = document.getElementById('ktpVideo');
+        const canvasElement = document.getElementById('ktpCanvas');
+
+        async function startCamera(deviceId = null) {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showCameraError("Kamera diblokir (harus HTTPS atau Localhost). Silakan gunakan upload manual.");
+                return;
+            }
+
+            const hadStream = !!videoStream;
+            stopCamera();
+            if (hadStream) {
+                // Beri jeda 500ms agar OS HP melepas kunci hardware kamera sebelumnya
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            let constraints = {
+                video: true
+            };
+
+            if (deviceId) {
+                constraints.video = {
+                    deviceId: {
+                        exact: deviceId
+                    }
+                };
+            } else {
+                constraints.video = {
+                    facingMode: "user",
+                    width: {
+                        ideal: 1920
+                    },
+                    height: {
+                        ideal: 1080
+                    }
+                };
+            }
+
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = videoStream;
+                document.getElementById('btnFallbackCamera').classList.add('hidden');
+                document.getElementById('loading').classList.add('hidden');
+
+                // Ambil daftar kamera untuk fitur "Ganti Kamera"
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+                if (videoDevices.length > 1) {
+                    document.getElementById('btnSwitchCamera').classList.remove('hidden');
+                }
+
+                // Mulai deteksi cerdas otomatis
+                startSmartScanLoop();
+                startLiveStream();
+            } catch (err) {
+                console.error("Kamera gagal diakses dengan constraint utama: ", err);
+
+                // Jika gagal dan belum pakai deviceId, coba fallback murni
+                if (!deviceId) {
+                    try {
+                        videoStream = await navigator.mediaDevices.getUserMedia({
+                            video: true
+                        });
+                        videoElement.srcObject = videoStream;
+                        document.getElementById('btnFallbackCamera').classList.add('hidden');
+                        document.getElementById('loading').classList.add('hidden');
+
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        videoDevices = devices.filter(device => device.kind === 'videoinput');
+                        if (videoDevices.length > 1) {
+                            document.getElementById('btnSwitchCamera').classList.remove('hidden');
+                        }
+
+                        // Mulai deteksi cerdas otomatis
+                        startSmartScanLoop();
+                        startLiveStream();
+                    } catch (err2) {
+                        console.error("Kamera gagal total: ", err2);
+                        showCameraError("Kamera tidak diizinkan atau tidak ditemukan. Silakan gunakan upload manual.");
+                    }
+                } else {
+                    console.warn("Mencoba fallback deviceId tanpa exact constraints...");
+                    try {
+                        videoStream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                deviceId: deviceId
+                            }
+                        });
+                        videoElement.srcObject = videoStream;
+                        document.getElementById('btnFallbackCamera').classList.add('hidden');
+                        document.getElementById('loading').classList.add('hidden');
+
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        videoDevices = devices.filter(device => device.kind === 'videoinput');
+                        if (videoDevices.length > 1) {
+                            document.getElementById('btnSwitchCamera').classList.remove('hidden');
+                        }
+
+                        startSmartScanLoop();
+                        startLiveStream();
+                    } catch (err3) {
+                        console.warn("Mencoba fallback murni (video: true) untuk kamera kedua...");
+                        try {
+                            videoStream = await navigator.mediaDevices.getUserMedia({
+                                video: true
+                            });
+                            videoElement.srcObject = videoStream;
+                            document.getElementById('btnFallbackCamera').classList.add('hidden');
+                            document.getElementById('loading').classList.add('hidden');
+
+                            const devices = await navigator.mediaDevices.enumerateDevices();
+                            videoDevices = devices.filter(device => device.kind === 'videoinput');
+                            if (videoDevices.length > 1) {
+                                document.getElementById('btnSwitchCamera').classList.remove('hidden');
+                            }
+
+                            startSmartScanLoop();
+                            startLiveStream();
+                        } catch (err4) {
+                            showCameraError("Kamera pilihan tidak dapat diakses.");
+                        }
+                    }
+                }
+            }
+        }
+
+        function showCameraError(msg) {
+            document.getElementById('btnFallbackCamera').classList.remove('hidden');
+            document.getElementById('loading').innerHTML = msg;
+            document.getElementById('loading').classList.remove('hidden');
+        }
+
+        document.getElementById('btnSwitchCamera').addEventListener('click', () => {
+            if (videoDevices.length > 0) {
+                currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
+                startCamera(videoDevices[currentDeviceIndex].deviceId);
+            }
+        });
+
+        function stopCamera() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
+            isLiveStreaming = false;
+            document.getElementById('btnSwitchCamera').classList.add('hidden');
+            document.getElementById('scanStatus').classList.add('hidden');
+        }
+
+        let isProcessingOCR = false;
+        let steadyCount = 0;
+
+        function updateScanStatus(text, colorClass = 'bg-yellow-400', isPulse = true) {
+            const icon = document.getElementById('scanStatusIcon');
+            const textEl = document.getElementById('scanStatusText');
+
+            icon.className = `w-3 h-3 rounded-full ${colorClass} ${isPulse ? 'animate-pulse' : ''}`;
+            textEl.innerText = text;
+        }
+
+        function startSmartScanLoop() {
+            steadyCount = 0;
+            isProcessingOCR = false;
+            if (scanInterval) clearInterval(scanInterval);
+            document.getElementById('scanStatus').classList.remove('hidden');
+            updateScanStatus("Menunggu instruksi Admin...", "bg-blue-400", true);
+
+            scanInterval = setInterval(async () => {
+                try {
+                    // Jangan ambil frame jika sedang memproses OCR atau video belum siap
+                    if (isProcessingOCR || !videoStream || videoElement.readyState < 2) return;
+
+                    // Cek aba-aba dari Admin
+                    const res = await fetch('/kiosk/checkTrigger');
+                    const data = await res.json();
+
+                    if (data.trigger === true) {
+                        isProcessingOCR = true;
+                        updateScanStatus("Mengekstrak data...", "bg-blue-400", true);
+
+                        // Dapatkan dimensi native dari kamera
+                        let vw = videoElement.videoWidth;
+                        let vh = videoElement.videoHeight;
+                        if (!vw || !vh) {
+                            vw = videoElement.clientWidth || 1920;
+                            vh = videoElement.clientHeight || 1080;
+                        }
+
+                        // Kalkulasi Auto-Crop berdasarkan posisi dashed border (object-cover)
+                        const container = document.getElementById('cameraContainer');
+                        const cw = container.clientWidth;
+                        const ch = container.clientHeight;
+
+                        const scale = Math.max(cw / vw, ch / vh);
+                        const displayW = vw * scale;
+                        const displayH = vh * scale;
+                        const offsetX = (cw - displayW) / 2;
+                        const offsetY = (ch - displayH) / 2;
+
+                        // Ukuran dashed box di layar (w-[80%] h-[65%], di tengah)
+                        const boxW = cw * 0.8;
+                        const boxH = ch * 0.65;
+                        const boxX = cw * 0.1;
+                        const boxY = ch * 0.175; // (1 - 0.65) / 2
+
+                        // Mapping koordinat box kembali ke resolusi asli video (Native HD)
+                        const cropX = Math.max(0, (boxX - offsetX) / scale);
+                        const cropY = Math.max(0, (boxY - offsetY) / scale);
+                        const cropW = Math.min(vw - cropX, boxW / scale);
+                        const cropH = Math.min(vh - cropY, boxH / scale);
+
+                        // Set kanvas hanya seukuran KTP yang terpotong
+                        canvasElement.width = cropW;
+                        canvasElement.height = cropH;
+
+                        const ctx = canvasElement.getContext('2d', {
+                            willReadFrequently: true
+                        });
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+
+                        // Crop frame asli dari video dan gambar ke canvas
+                        ctx.drawImage(videoElement, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+                        // Freeze camera & tampilkan animasi scanning
+                        videoElement.pause();
+                        document.getElementById('scanningBigOverlay').classList.remove('hidden');
+                        document.getElementById('scanningBigOverlay').classList.add('flex');
+
+                        // Konversi ke JPEG Quality 100% untuk ketajaman maksimal tanpa artifact
+                        canvasElement.toBlob((blob) => {
+                            if (blob) {
+                                sendPhotoToOCR(blob);
+                            } else {
+                                isProcessingOCR = false;
+                                updateScanStatus("Menunggu instruksi Admin...", "bg-blue-400", true);
+                            }
+                        }, 'image/jpeg', 1.0);
+                    }
+                } catch (e) {
+                    console.error("SmartScan Error:", e);
+                    updateScanStatus("Terjadi error koneksi.", "bg-red-500", false);
+                }
+            }, 1000); // Cek setiap 1 detik
+        }
+
+        let isLiveStreaming = false;
+
+        async function fetchLiveFrame() {
+            if (!isLiveStreaming) return;
+
+            if (!videoStream || isProcessingOCR) {
+                setTimeout(fetchLiveFrame, 500);
+                return;
+            }
+
+            const streamCanvas = document.createElement('canvas');
+            let vw = videoElement.videoWidth;
+            let vh = videoElement.videoHeight;
+            if (!vw || !vh) {
+                setTimeout(fetchLiveFrame, 150);
+                return;
+            }
+
+            // Gunakan resolusi native tanpa kompresi/scaling
+            streamCanvas.width = vw;
+            streamCanvas.height = vh;
+
+            const ctx = streamCanvas.getContext('2d');
+            ctx.drawImage(videoElement, 0, 0, vw, vh);
+
+            // JPEG 0.7 quality (Kualitas HD yang Bening)
+            const dataUrl = streamCanvas.toDataURL('image/jpeg', 0.7);
+
+            const formData = new FormData();
+            formData.append('image', dataUrl);
+            const csrfToken = document.querySelector('input[name="csrf_test_name"]');
+            if (csrfToken) formData.append(csrfToken.name, csrfToken.value);
+
+            try {
+                await fetch('/kiosk/streamFrame', {
+                    method: 'POST',
+                    body: formData
+                });
+            } catch (e) {
+                console.error("Live Stream Error:", e);
+            }
+
+            if (isLiveStreaming) {
+                setTimeout(fetchLiveFrame, 150);
+            }
+        }
+
+        function startLiveStream() {
+            if (!isLiveStreaming) {
+                isLiveStreaming = true;
+                fetchLiveFrame();
+            }
+        }
+
+        async function sendPhotoToOCR(blob) {
+            const formData = new FormData();
+            formData.append('ktp_image', blob, 'ktp_auto_scan.png');
+            const csrfToken = document.querySelector('input[name="csrf_test_name"]');
+            if (csrfToken) formData.append(csrfToken.name, csrfToken.value);
+
+            try {
+                const scanUrl = fixUrl(document.getElementById('formKtp').dataset.scanUrl);
+                const response = await fetch(scanUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.status === 'error') {
+                    console.error("OCR API Error:", result.pesan);
+                    updateScanStatus("Gagal membaca foto. Silakan ambil ulang.", "bg-red-500", true);
+
+                    videoElement.play();
+                    document.getElementById('scanningBigOverlay').classList.add('hidden');
+                    document.getElementById('scanningBigOverlay').classList.remove('flex');
+
+                    setTimeout(() => {
+                        isProcessingOCR = false;
+                        updateScanStatus("Menunggu instruksi Admin...", "bg-blue-400", true);
+                    }, 2000);
+                    return;
+                }
+
+                if (result.status === 'sukses' && result.data_ktp) {
+                    const nik = result.data_ktp.nik || '';
+                    const nama = result.data_ktp.nama || '';
+
+
+                    if (nik.length === 16 && nik !== "Tidak terdeteksi") {
+                        stopCamera();
+                        updateScanStatus("KTP Berhasil Terbaca!", "bg-green-500", false);
+
+                        const finalNama = (nama && nama !== "Tidak terdeteksi") ? nama : '';
+                        processSuccessfulScan(nik, finalNama);
+
+                        return;
+                    }
+                }
+
+                let raw = result.hasil_bacaan_mentah || "";
+                let snippet = raw.replace(/\n/g, ' ').trim().substring(0, 25);
+
+                if (snippet.length > 3) {
+                    updateScanStatus("Terbaca: " + snippet + "...", "bg-yellow-400", false);
+                } else {
+                    updateScanStatus("Gagal. Coba lagi dari Admin.", "bg-yellow-400", true);
+                }
+
+                videoElement.play();
+                document.getElementById('scanningBigOverlay').classList.add('hidden');
+                document.getElementById('scanningBigOverlay').classList.remove('flex');
+
+                setTimeout(() => {
+                    isProcessingOCR = false;
+                    updateScanStatus("Menunggu instruksi Admin...", "bg-blue-400", true);
+                }, 2000);
+            } catch (error) {
+                console.error("Error OCR:", error);
+                updateScanStatus("Koneksi gagal, coba lagi dari Admin.", "bg-red-500", true);
+
+                videoElement.play();
+                document.getElementById('scanningBigOverlay').classList.add('hidden');
+                document.getElementById('scanningBigOverlay').classList.remove('flex');
+
+                setTimeout(() => {
+                    isProcessingOCR = false;
+                    updateScanStatus("Menunggu instruksi Admin...", "bg-blue-400", true);
+                }, 2000);
+            }
+        }
+
+        function processSuccessfulScan(nik, nama) {
+            scannedNik = nik;
+            scannedNama = nama;
+
+            document.getElementById('nikInput').value = scannedNik;
+            document.getElementById('namaInput').value = scannedNama;
+
+            document.getElementById('phoneConfirmWrapper').classList.add('hidden');
+            document.getElementById('emailConfirmWrapper').classList.add('hidden');
+            document.getElementById('typeConfirmWrapper').classList.add('hidden');
+            document.getElementById('expiredConfirmWrapper').classList.add('hidden');
+
+            const lookupMember = (nikToLookup) => {
+                document.getElementById('phoneConfirmWrapper').classList.add('hidden');
+                document.getElementById('emailConfirmWrapper').classList.add('hidden');
+                document.getElementById('typeConfirmWrapper').classList.add('hidden');
+                document.getElementById('expiredConfirmWrapper').classList.add('hidden');
+
+                const getMemberUrl = fixUrl(document.getElementById('formKtp').dataset.getMemberUrl);
+                fetch(`${getMemberUrl}?nik=${nikToLookup}`)
+                    .then(res => res.json())
+                    .then(memberRes => {
+                        if (memberRes.status === 'sukses' && memberRes.exists) {
+                            const m = memberRes.data;
+                            if (m.nomor_hp) {
+                                document.getElementById('phoneConfirm').innerText = m.nomor_hp;
+                                document.getElementById('phoneConfirmWrapper').classList.remove('hidden');
+                            }
+                            if (m.email) {
+                                document.getElementById('emailConfirm').innerText = m.email;
+                                document.getElementById('emailConfirmWrapper').classList.remove('hidden');
+                            }
+                            if (m.type_member) {
+                                document.getElementById('typeConfirm').innerText = m.type_member;
+                                document.getElementById('typeConfirmWrapper').classList.remove('hidden');
+                            }
+                            if (m.tgl_expired_member) {
+                                const d = new Date(m.tgl_expired_member);
+                                const formattedDate = !isNaN(d) ? d.toLocaleDateString('id-ID', {
+                                    day: '2-digit',
+                                    month: 'long',
+                                    year: 'numeric'
+                                }) : m.tgl_expired_member;
+                                document.getElementById('expiredConfirm').innerText = formattedDate;
+                                document.getElementById('expiredConfirmWrapper').classList.remove('hidden');
+                            }
+                        }
+                    })
+                    .catch(err => console.error("Error loading existing member details:", err));
+            };
+
+            lookupMember(scannedNik);
+
+            document.getElementById('nikInput').addEventListener('input', function(e) {
+                triggerCacheUpdate();
+                const currentNik = e.target.value.trim();
+                if (currentNik.length >= 10) {
+                    lookupMember(currentNik);
+                } else {
+                    document.getElementById('phoneConfirmWrapper').classList.add('hidden');
+                    document.getElementById('emailConfirmWrapper').classList.add('hidden');
+                    document.getElementById('typeConfirmWrapper').classList.add('hidden');
+                    document.getElementById('expiredConfirmWrapper').classList.add('hidden');
+                }
+            });
+
+            document.getElementById('namaInput').addEventListener('input', function(e) {
+                triggerCacheUpdate();
+            });
+
+            document.getElementById('stepScan').classList.add('hidden');
+            document.getElementById('stepConfirm').classList.remove('hidden');
+        }
+
+        // Fallback file input listener
         document.getElementById('inputKtp').addEventListener('change', async function(e) {
             const file = this.files[0];
             if (!file) return;
 
             const loadingDiv = document.getElementById('loading');
+            loadingDiv.innerHTML = "Mengekstraksi data KTP Anda dari file...";
             loadingDiv.classList.remove('hidden');
 
             const formData = new FormData();
             formData.append('ktp_image', file);
+            const csrfToken = document.querySelector('input[name="csrf_test_name"]');
+            if (csrfToken) formData.append(csrfToken.name, csrfToken.value);
 
             try {
-                // Get URL from data attributes
-                const scanUrl = document.getElementById('formKtp').dataset.scanUrl;
+                const scanUrl = fixUrl(document.getElementById('formKtp').dataset.scanUrl);
                 const response = await fetch(scanUrl, {
                     method: 'POST',
                     body: formData
                 });
-
                 const result = await response.json();
-
                 if (result.status === 'sukses' && result.data_ktp) {
-                    scannedNik = result.data_ktp.nik;
-                    scannedNama = result.data_ktp.nama;
-
-                    document.getElementById('nikInput').value = scannedNik;
-                    document.getElementById('namaInput').value = scannedNama;
-
-                    // Hide optional wrappers initially
-                    document.getElementById('phoneConfirmWrapper').classList.add('hidden');
-                    document.getElementById('emailConfirmWrapper').classList.add('hidden');
-                    document.getElementById('typeConfirmWrapper').classList.add('hidden');
-                    document.getElementById('expiredConfirmWrapper').classList.add('hidden');
-
-                    // Function to lookup member by NIK
-                    const lookupMember = (nikToLookup) => {
-                        // Reset fields first
-                        document.getElementById('phoneConfirmWrapper').classList.add('hidden');
-                        document.getElementById('emailConfirmWrapper').classList.add('hidden');
-                        document.getElementById('typeConfirmWrapper').classList.add('hidden');
-                        document.getElementById('expiredConfirmWrapper').classList.add('hidden');
-
-                        const getMemberUrl = document.getElementById('formKtp').dataset.getMemberUrl;
-                        fetch(`${getMemberUrl}?nik=${nikToLookup}`)
-                            .then(res => res.json())
-                            .then(memberRes => {
-                                if (memberRes.status === 'sukses' && memberRes.exists) {
-                                    const m = memberRes.data;
-                                    if (m.nomor_hp) {
-                                        document.getElementById('phoneConfirm').innerText = m.nomor_hp;
-                                        document.getElementById('phoneConfirmWrapper').classList.remove('hidden');
-                                    }
-                                    if (m.email) {
-                                        document.getElementById('emailConfirm').innerText = m.email;
-                                        document.getElementById('emailConfirmWrapper').classList.remove('hidden');
-                                    }
-                                    if (m.type_member) {
-                                        document.getElementById('typeConfirm').innerText = m.type_member;
-                                        document.getElementById('typeConfirmWrapper').classList.remove('hidden');
-                                    }
-                                    if (m.tgl_expired_member) {
-                                        // Format date YYYY-MM-DD to DD-MM-YYYY or readable format
-                                        const d = new Date(m.tgl_expired_member);
-                                        const formattedDate = !isNaN(d) ? d.toLocaleDateString('id-ID', {
-                                            day: '2-digit',
-                                            month: 'long',
-                                            year: 'numeric'
-                                        }) : m.tgl_expired_member;
-                                        document.getElementById('expiredConfirm').innerText = formattedDate;
-                                        document.getElementById('expiredConfirmWrapper').classList.remove('hidden');
-                                    }
-                                }
-                            })
-                            .catch(err => console.error("Error loading existing member details:", err));
-                    };
-
-                    // Initial lookup with scanned NIK
-                    lookupMember(scannedNik);
-
-                    // Tambahkan listener ke nikInput untuk pencarian koreksi manual dinamis
-                    document.getElementById('nikInput').addEventListener('input', function(e) {
-                        triggerCacheUpdate();
-                        const currentNik = e.target.value.trim();
-                        if (currentNik.length >= 10) {
-                            lookupMember(currentNik);
-                        } else {
-                            document.getElementById('phoneConfirmWrapper').classList.add('hidden');
-                            document.getElementById('emailConfirmWrapper').classList.add('hidden');
-                            document.getElementById('typeConfirmWrapper').classList.add('hidden');
-                            document.getElementById('expiredConfirmWrapper').classList.add('hidden');
-                        }
-                    });
-
-                    // Listener namaInput untuk update cache admin real-time
-                    document.getElementById('namaInput').addEventListener('input', function(e) {
-                        triggerCacheUpdate();
-                    });
-
-                    document.getElementById('stepScan').classList.add('hidden');
-                    document.getElementById('stepConfirm').classList.remove('hidden');
+                    processSuccessfulScan(result.data_ktp.nik, result.data_ktp.nama);
                 } else {
                     alert("Gagal membaca KTP: " + (result.pesan || "Format gambar tidak dikenali."));
                 }
             } catch (error) {
-                console.error("Error:", error);
                 alert("Koneksi gagal ke server backend.");
             } finally {
                 loadingDiv.classList.add('hidden');
                 document.getElementById('inputKtp').value = '';
             }
+        });
+
+        // Start camera when DOM loads
+        document.addEventListener('DOMContentLoaded', () => {
+            startCamera();
         });
 
         // Check-in post
@@ -503,7 +928,7 @@
                 checkinFormData.append('nik', finalNik);
                 checkinFormData.append('nama', finalNama);
 
-                const checkinUrl = document.getElementById('formKtp').dataset.checkinUrl;
+                const checkinUrl = fixUrl(document.getElementById('formKtp').dataset.checkinUrl);
                 const response = await fetch(checkinUrl, {
                     method: 'POST',
                     body: checkinFormData
@@ -552,9 +977,7 @@
                                     document.getElementById('resultSuccess').classList.remove('hidden');
                                 }
                             }
-                        } catch (err) {
-                            // Abaikan error jaringan sementara
-                        }
+                        } catch (err) {}
                     }, 2000); // Polling setiap 2 detik
 
                 } else if (result.status === 'limit') {
@@ -608,8 +1031,16 @@
             document.getElementById('stepResult').classList.add('hidden');
             document.getElementById('stepScan').classList.remove('hidden');
 
+            const scanningOverlay = document.getElementById('scanningBigOverlay');
+            if (scanningOverlay) {
+                scanningOverlay.classList.add('hidden');
+                scanningOverlay.classList.remove('flex');
+            }
+
             // Pastikan tombol kembali muncul 
             document.getElementById('btnKembaliResult').classList.remove('hidden');
+
+            startCamera();
         }
     </script>
 </body>

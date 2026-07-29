@@ -1,21 +1,16 @@
-
 <!DOCTYPE html>
 <html lang="en" class="light">
 <head>
-    <?php
-    /** @noinspection PhpUndefinedVariableInspection */
-    /** @noinspection PhpUndefinedFunctionInspection */
-    /** @var array $members */
-    ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyMember Admin - Daftar Member</title>
+    <title><?= esc($title ?? 'Kiosk Controller') ?></title>
     <!-- Google Fonts: Hanken Grotesk -->
-    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Material Symbols -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Liquidglass Theme -->
     <link href="<?= base_url('css/liquidglass.css') ?>" rel="stylesheet" />
     <script id="tailwind-config">
@@ -107,9 +102,9 @@
             <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="dashboard">dashboard</span>
             <span class="">Dashboard</span>
         </a>
-        <!-- Members (Active) -->
-        <a href="/admin/member" class="flex items-center px-4 py-3 transition-colors duration-200 text-secondary dark:text-secondary-fixed font-bold border-r-4 border-secondary font-body-md text-body-md bg-secondary/5 group">
-            <span class="material-symbols-outlined mr-4" data-icon="group" style="font-variation-settings: 'FILL' 1;">group</span>
+        <!-- Members -->
+        <a href="/admin/member" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
+            <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="group">group</span>
             <span class="">Daftar Member</span>
         </a>
         <!-- Member Type -->
@@ -122,9 +117,9 @@
             <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="history">history</span>
             <span class="">Riwayat Kunjungan</span>
         </a>
-        <!-- Kiosk Controller -->
-        <a href="/admin/kiosk" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
-            <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="aod">aod</span>
+        <!-- Kiosk Controller (Active) -->
+        <a href="/admin/kiosk" class="flex items-center px-4 py-3 transition-colors duration-200 text-secondary dark:text-secondary-fixed font-bold border-r-4 border-secondary font-body-md text-body-md bg-secondary/5 group">
+            <span class="material-symbols-outlined mr-4" data-icon="aod" style="font-variation-settings: 'FILL' 1;">aod</span>
             <span class="">Kiosk Controller</span>
         </a>
         <!-- Logout -->
@@ -146,103 +141,134 @@
 <!-- TopAppBar Anchor -->
 <header class="fixed top-0 right-0 h-16 ml-[280px] w-[calc(100%-280px)] glass-panel flex justify-between items-center px-8 z-40 transition-all duration-150 border-b-0">
     <div class="flex items-center flex-1 max-w-xl">
-        <div class="relative w-full">
-            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
-            <input id="crudSearch" class="w-full glass-input rounded-full pl-10 pr-4 py-2 text-label-md font-label-md transition-all" placeholder="Cari member..." type="text">
-        </div>
+        <div class="text-sm text-outline font-semibold">Remote Control Tablet Kiosk</div>
     </div>
 </header>
 
 <!-- Main Canvas -->
-<main class="ml-[280px] pt-16 min-h-screen">
-    <div class="p-8 max-w-[1440px] mx-auto">
-        <!-- Page Header -->
-        <div class="flex justify-between items-end mb-8">
-            <div>
-                <h2 class="font-headline-xl text-headline-xl text-primary mb-1">Daftar Member</h2>
-                <p class="font-body-md text-body-md text-on-surface-variant">List lengkap seluruh member yang terdaftar di sistem.</p>
+<main class="ml-[280px] mt-16 p-8 min-h-[calc(100vh-4rem)]">
+    <div class="max-w-6xl mx-auto grid grid-cols-1 xl:grid-cols-2 gap-8">
+        
+        <!-- Left: Controls -->
+        <div class="glass-panel p-8 rounded-3xl flex flex-col justify-center text-center">
+            
+            <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-blue-100 text-blue-600 mb-6 mx-auto">
+                <span class="material-symbols-outlined text-4xl">aod</span>
+            </div>
+
+            <h2 class="text-3xl font-headline-md font-bold mb-4">Remote Capture Kiosk</h2>
+            <p class="text-on-surface-variant mb-12 max-w-md mx-auto">
+                Pastikan KTP member sudah berada tepat di tengah frame Tablet Kiosk. Klik tombol di bawah ini untuk mengambil foto dan memulai proses pemindaian OCR.
+            </p>
+
+            <button id="btn-trigger" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-5 px-12 rounded-full shadow-lg shadow-blue-500/30 transition-all active:scale-95 text-xl flex items-center mx-auto">
+                <span class="material-symbols-outlined mr-3">camera</span>
+                Take Picture & Scan
+            </button>
+
+            <div id="status-message" class="mt-8 text-lg font-medium text-green-600 hidden">
+                Sinyal capture berhasil dikirim ke Kiosk!
             </div>
         </div>
 
-        <section class="space-y-6">
-            <div class="glass-panel rounded-2xl p-6 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="glass-header text-on-surface-variant uppercase text-[10px] font-bold tracking-wider">
-                                <th class="py-3 px-4 rounded-l-lg">NIK</th>
-                                <th class="py-3 px-4">Nama Lengkap</th>
-                                <th class="py-3 px-4">Kontak</th>
-                                <th class="py-3 px-4">Tipe Member</th>
-                                <th class="py-3 px-4 text-center">Sisa Kuota</th>
-                                <th class="py-3 px-4 rounded-r-lg">Masa Aktif</th>
-                            </tr>
-                        </thead>
-                        <tbody class="text-xs text-on-surface divide-y divide-surface-container">
-                            <?php if (empty($members)): ?>
-                                <tr>
-                                    <td colspan="6" class="py-12 text-center text-outline italic">
-                                        Belum ada data member.
-                                    </td>
-                                </tr>
-                            <?php else: ?>
-                                <?php foreach ($members as $m): ?>
-                                    <tr class="glass-table-row">
-                                        <td class="py-3.5 px-4 font-mono font-bold text-on-surface"><?= esc($m['NIK']) ?></td>
-                                        <td class="py-3.5 px-4 font-semibold"><?= esc($m['nama_lengkap']) ?></td>
-                                        <td class="py-3.5 px-4 leading-relaxed">
-                                            <?= esc($m['nomor_hp']) ?><br>
-                                            <span class="text-on-surface-variant"><?= esc($m['email']) ?></span>
-                                        </td>
-                                        <td class="py-3.5 px-4">
-                                            <span class="bg-primary/10 text-primary font-bold px-2 py-1 rounded-sm"><?= esc($m['type_member'] ?? 'Unknown') ?></span>
-                                        </td>
-                                        <td class="py-3.5 px-4 text-center">
-                                            <span class="inline-flex items-center justify-center bg-secondary/10 text-secondary px-2 py-1 rounded font-bold">
-                                                <?= esc($m['sisa_kuota']) ?>
-                                            </span>
-                                        </td>
-                                        <td class="py-3.5 px-4 font-semibold">
-                                            <?= !empty($m['tgl_expired_member']) ? date('d M Y', strtotime($m['tgl_expired_member'])) : 'No Limit' ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+        <!-- Right: Live Feed -->
+        <div class="glass-panel p-8 rounded-3xl flex flex-col">
+            <div class="flex items-center gap-2 mb-6">
+                <span class="material-symbols-outlined text-red-500 animate-pulse">fiber_manual_record</span>
+                <h3 class="text-xl font-headline-md font-bold">Live Kiosk Feed</h3>
             </div>
-        </section>
+            
+            <div class="w-full aspect-video bg-black rounded-xl overflow-hidden relative shadow-inner border border-outline-variant/30 flex items-center justify-center">
+                <!-- Fallback / Loading -->
+                <div id="feed-status" class="absolute inset-0 flex flex-col items-center justify-center text-white/50 z-0">
+                    <span class="material-symbols-outlined text-4xl mb-2 animate-bounce">videocam_off</span>
+                    <p class="text-sm">Menunggu koneksi Kiosk...</p>
+                </div>
+                <!-- Stream Image -->
+                <img id="kiosk-live-feed" src="" class="w-full h-full object-contain relative z-10 hidden" alt="Live Feed" onerror="handleStreamError()" onload="handleStreamSuccess()" />
+            </div>
+            <p class="text-xs text-on-surface-variant mt-4 opacity-70 text-center">* Resolusi dikurangi untuk optimalisasi jaringan.</p>
+        </div>
+
     </div>
 </main>
 
-<footer class="text-center py-6 text-xs text-outline glass-panel ml-[280px] border-t-0">
-    &copy; 2026 MyMember Admin Dashboard.
-</footer>
-
 <script>
-    // Real-time table search functionality
-    const searchInput = document.getElementById('crudSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase().trim();
-            const rows = document.querySelectorAll('tbody tr');
-            
-            rows.forEach(row => {
-                if (row.querySelector('td[colspan]')) return;
-                
-                const cells = row.getElementsByTagName('td');
-                if (cells.length < 3) return;
-                
-                const nik = cells[0].textContent.toLowerCase();
-                const nama = cells[1].textContent.toLowerCase();
-                const kontak = cells[2].textContent.toLowerCase();
-                
-                const matches = nik.includes(query) || nama.includes(query) || kontak.includes(query);
-                row.style.display = matches ? '' : 'none';
-            });
-        });
+$(document).ready(function() {
+    let isStreaming = false;
+    let errorCount = 0;
+
+    function fetchNextFrame() {
+        if (!isStreaming) return;
+        const imgUrl = '/admin/kiosk/getStreamFrame?t=' + new Date().getTime();
+        $('#kiosk-live-feed').attr('src', imgUrl);
     }
+
+    function startAdminStream() {
+        isStreaming = true;
+        fetchNextFrame();
+    }
+
+    window.handleStreamError = function() {
+        errorCount++;
+        if(errorCount > 3) {
+            $('#kiosk-live-feed').addClass('hidden');
+            $('#feed-status').removeClass('hidden').html('<span class="material-symbols-outlined text-4xl mb-2">videocam_off</span><p class="text-sm text-red-400">Kiosk Offline / Kamera Mati</p>');
+        }
+        if (isStreaming) {
+            setTimeout(fetchNextFrame, 1000); // Jika error, jeda lebih lama sebelum coba lagi
+        }
+    };
+
+    window.handleStreamSuccess = function() {
+        errorCount = 0;
+        $('#kiosk-live-feed').removeClass('hidden');
+        $('#feed-status').addClass('hidden');
+        
+        if (isStreaming) {
+            setTimeout(fetchNextFrame, 150); // frame baru lebih cepat Real-time FPS
+        }
+    };
+
+    startAdminStream();
+
+    $('#btn-trigger').click(function() {
+        const btn = $(this);
+        const originalText = btn.html();
+        
+        btn.prop('disabled', true);
+        btn.html('<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Mengirim...');
+        
+        // Pause stream temporarily so we don't spam while it's processing
+        isStreaming = false;
+
+        $.ajax({
+            url: '/admin/kiosk/trigger',
+            type: 'POST',
+            data: {
+                <?= csrf_token() ?>: '<?= csrf_hash() ?>'
+            },
+            success: function(response) {
+                btn.html(originalText);
+                btn.prop('disabled', false);
+                
+                $('#status-message').removeClass('hidden').fadeIn();
+                setTimeout(() => {
+                    $('#status-message').fadeOut();
+                    // Resume streaming after 3 seconds
+                    startAdminStream();
+                }, 3000);
+            },
+            error: function() {
+                alert('Gagal mengirim sinyal ke Kiosk.');
+                btn.html(originalText);
+                btn.prop('disabled', false);
+                startAdminStream(); // Resume immediately on error
+            }
+        });
+    });
+});
 </script>
+
 </body>
 </html>

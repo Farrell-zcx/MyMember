@@ -14,8 +14,9 @@ class LogKunjungan extends Controller
 
         $db      = \Config\Database::connect();
         $builder = $db->table('log_kunjungan');
-        $builder->select('log_kunjungan.*, members.nama_lengkap');
+        $builder->select('log_kunjungan.*, members.nama_lengkap, master_type_member.type_member');
         $builder->join('members', 'members.NIK = log_kunjungan.NIK', 'left');
+        $builder->join('master_type_member', 'master_type_member.id_type = members.id_type', 'left');
         $builder->orderBy('log_kunjungan.waktu_kunjungan', 'DESC');
 
         $data['logs'] = $builder->get()->getResultArray();
@@ -31,8 +32,9 @@ class LogKunjungan extends Controller
 
         $db      = \Config\Database::connect();
         $builder = $db->table('log_kunjungan');
-        $builder->select('log_kunjungan.*, members.nama_lengkap');
+        $builder->select('log_kunjungan.*, members.nama_lengkap, master_type_member.type_member');
         $builder->join('members', 'members.NIK = log_kunjungan.NIK', 'left');
+        $builder->join('master_type_member', 'master_type_member.id_type = members.id_type', 'left');
         $builder->orderBy('log_kunjungan.waktu_kunjungan', 'DESC');
 
         $logs = $builder->get()->getResultArray();
