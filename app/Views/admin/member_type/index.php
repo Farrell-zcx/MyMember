@@ -1,250 +1,27 @@
-<!DOCTYPE html>
-<html lang="en" class="light">
+<?php
+/**
+ * @var string|null $old_nik
+ * @var string|null $nik
+ * @var string|null $nama_lengkap
+ * @var string|null $nomor_hp
+ * @var string|null $email
+ * @var int|string|null $id_type
+ * @var int|string|null $sisa_kuota
+ * @var string|null $tgl_expired_member
+ * @var bool $is_edit
+ * @var string|null $status
+ * @var array $members
+ */
+?>
+<?= $this->extend('layouts/admin') ?>
+<?= $this->section('title') ?>MyMember Admin - Member CRUD<?= $this->endSection() ?>
 
-<head>
-    <?php
-    /** @noinspection PhpUndefinedVariableInspection */
-    /** @noinspection PhpUndefinedFunctionInspection */
-    /**
-     * @var string $nik
-     * @var string $nama_lengkap
-     * @var string $nomor_hp
-     * @var string $email
-     * @var int|string $id_type
-     * @var int|string $sisa_kuota
-     * @var string $tgl_expired_member
-     * @var bool $is_edit
-     * @var string $old_nik
-     * @var string $status
-     * @var array $members
-     */
-    ?>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyMember Admin - Member CRUD</title>
-    <!-- Google Fonts: Hanken Grotesk -->
-    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
-    <!-- Material Symbols -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet">
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <!-- Liquidglass Theme -->
-    <link href="<?= base_url('css/liquidglass.css') ?>" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script id="tailwind-config">
-        try {
-            tailwind.config = {
-                darkMode: "class",
-                theme: {
-                    extend: {
-                        "colors": {
-                            "on-background": "#191c1e",
-                            "inverse-primary": "#bec6e0",
-                            "surface-variant": "#e0e3e5",
-                            "primary-fixed-dim": "#bec6e0",
-                            "inverse-on-surface": "#eff1f3",
-                            "inverse-surface": "#2d3133",
-                            "surface-container": "#eceef0",
-                            "surface-container-lowest": "#ffffff",
-                            "surface-container-low": "#f2f4f6",
-                            "primary": "#000000",
-                            "surface-dim": "#d8dadc",
-                            "tertiary-fixed-dim": "#b7c8e1",
-                            "on-secondary": "#ffffff",
-                            "surface-container-highest": "#e0e3e5",
-                            "on-surface-variant": "#45464d",
-                            "primary-fixed": "#dae2fd",
-                            "secondary": "#0058be",
-                            "background": "#f7f9fb",
-                            "primary-container": "#131b2e",
-                            "error-container": "#ffdad6",
-                            "surface": "#f7f9fb",
-                            "on-primary-fixed": "#131b2e",
-                            "on-error-container": "#93000a",
-                            "outline-variant": "#c6c6cd",
-                            "on-secondary-fixed": "#001a42",
-                            "on-secondary-fixed-variant": "#004395",
-                            "on-primary-container": "#7c839b",
-                            "tertiary-fixed": "#d3e4fe",
-                            "surface-container-high": "#e6e8ea",
-                            "on-error": "#ffffff",
-                            "tertiary-container": "#0b1c30",
-                            "on-secondary-container": "#fefcff",
-                            "on-surface": "#191c1e",
-                            "error": "#ba1a1a",
-                            "on-tertiary-fixed": "#0b1c30",
-                            "on-tertiary": "#ffffff",
-                            "on-tertiary-container": "#75859d",
-                            "surface-bright": "#f7f9fb",
-                            "tertiary": "#000000",
-                            "on-primary": "#ffffff",
-                            "on-primary-fixed-variant": "#3f465c",
-                            "secondary-fixed-dim": "#adc6ff",
-                            "on-tertiary-fixed-variant": "#38485d",
-                            "outline": "#76777d",
-                            "secondary-container": "#2170e4",
-                            "secondary-fixed": "#d8e2ff",
-                            "surface-tint": "#565e74"
-                        },
-                        "borderRadius": {
-                            "DEFAULT": "0.125rem",
-                            "lg": "0.25rem",
-                            "xl": "0.5rem",
-                            "full": "0.75rem"
-                        },
-                        "spacing": {
-                            "base": "4px",
-                            "xl": "32px",
-                            "margin-mobile": "16px",
-                            "xs": "8px",
-                            "2xl": "48px",
-                            "sm": "12px",
-                            "lg": "24px",
-                            "md": "16px",
-                            "gutter": "24px",
-                            "margin-desktop": "32px"
-                        },
-                        "fontFamily": {
-                            "headline-md": ["Hanken Grotesk"],
-                            "label-md": ["Hanken Grotesk"],
-                            "body-lg": ["Hanken Grotesk"],
-                            "headline-xl": ["Hanken Grotesk"],
-                            "headline-lg-mobile": ["Hanken Grotesk"],
-                            "body-md": ["Hanken Grotesk"],
-                            "label-sm": ["Hanken Grotesk"],
-                            "body-sm": ["Hanken Grotesk"],
-                            "headline-lg": ["Hanken Grotesk"]
-                        },
-                        "fontSize": {
-                            "headline-md": ["20px", {
-                                "lineHeight": "28px",
-                                "fontWeight": "600"
-                            }],
-                            "label-md": ["14px", {
-                                "lineHeight": "20px",
-                                "letterSpacing": "0.05em",
-                                "fontWeight": "500"
-                            }],
-                            "body-lg": ["18px", {
-                                "lineHeight": "28px",
-                                "fontWeight": "400"
-                            }],
-                            "headline-xl": ["36px", {
-                                "lineHeight": "44px",
-                                "letterSpacing": "-0.02em",
-                                "fontWeight": "700"
-                            }],
-                            "headline-lg-mobile": ["20px", {
-                                "lineHeight": "28px",
-                                "fontWeight": "600"
-                            }],
-                            "body-md": ["16px", {
-                                "lineHeight": "24px",
-                                "fontWeight": "400"
-                            }],
-                            "label-sm": ["12px", {
-                                "lineHeight": "16px",
-                                "fontWeight": "600"
-                            }],
-                            "body-sm": ["14px", {
-                                "lineHeight": "20px",
-                                "fontWeight": "400"
-                            }],
-                            "headline-lg": ["24px", {
-                                "lineHeight": "32px",
-                                "letterSpacing": "-0.01em",
-                                "fontWeight": "600"
-                            }]
-                        }
-                    },
-                },
-            }
-        } catch (_e) {}
-    </script>
-    <meta charset="utf-8">
-</head>
 
-<body class="liquid-bg text-on-surface">
 
-    <!-- SideNavBar Anchor -->
-    <aside class="fixed left-0 top-0 h-full w-[280px] glass-panel flex flex-col py-6 transition-colors duration-200 z-50 border-r-0">
-        <div class="px-6 mb-10">
-            <div class="flex items-center gap-2 mb-2">
-                <img src="<?= base_url('images/logo.png') ?>" alt="MyMember" class="h-10 w-auto mix-blend-multiply" />
-                <h1 class="font-headline-xl text-headline-xl text-primary dark:text-inverse-primary tracking-tight">MyMember</h1>
-            </div>
-            <p class="text-label-sm text-on-surface-variant opacity-70">Admin Portal</p>
-        </div>
-        <nav class="flex-1 space-y-1 px-3">
-            <!-- Dashboard -->
-            <a href="/admin/dashboard" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
-                <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="dashboard">dashboard</span>
-                <span class="">Dashboard</span>
-            </a>
-            <!-- Members -->
-            <a href="/admin/member" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
-                <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="group">group</span>
-                <span class="">Daftar Member</span>
-            </a>
-            <!-- Member Type (Active) -->
-            <a href="/admin/member-type" class="flex items-center px-4 py-3 transition-colors duration-200 text-secondary dark:text-secondary-fixed font-bold border-r-4 border-secondary font-body-md text-body-md bg-secondary/5 group">
-                <span class="material-symbols-outlined mr-4" data-icon="card_membership" style="font-variation-settings: 'FILL' 1;">card_membership</span>
-                <span class="">Kelola Member</span>
-            </a>
-            <!-- Riwayat Kunjungan -->
-            <a href="/admin/log-kunjungan" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
-                <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="history">history</span>
-                <span class="">Riwayat Kunjungan</span>
-            </a>
-            <!-- Kiosk Controller -->
-            <a href="/admin/kiosk" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-surface-container dark:hover:bg-on-surface-variant text-on-surface-variant dark:text-surface-variant font-body-md text-body-md group">
-                <span class="material-symbols-outlined mr-4 group-hover:text-secondary transition-colors" data-icon="aod">aod</span>
-                <span class="">Kiosk Controller</span>
-            </a>
-            <!-- Logout -->
-            <a href="/logout" class="flex items-center px-4 py-3 transition-colors duration-200 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-body-md text-body-md group">
-                <span class="material-symbols-outlined mr-4 group-hover:text-rose-700 transition-colors" data-icon="logout">logout</span>
-                <span class="">Logout</span>
-            </a>
-        </nav>
-        <div class="px-6 mt-auto">
-            <div class="flex items-center p-3 rounded-xl bg-surface-container-low border border-outline-variant">
-                <div>
-                    <p class="font-label-md text-label-md text-on-surface leading-tight"><?= esc(session()->get('nama_resepsionis') ?? 'Admin Rivera') ?></p>
-                    <p class="text-[10px] text-on-surface-variant uppercase tracking-wider"><?= esc(session()->get('username') ?? 'super_admin') ?></p>
-                </div>
-            </div>
-        </div>
-    </aside>
-
-    <!-- TopAppBar Anchor -->
-    <header class="fixed top-0 right-0 h-16 ml-[280px] w-[calc(100%-280px)] glass-panel flex justify-between items-center px-margin-desktop z-40 transition-all duration-150 border-b-0">
-        <div class="flex items-center flex-1 max-w-xl">
-            <div class="relative w-full">
-                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
-                <input id="crudSearch" class="w-full glass-input rounded-full pl-10 pr-4 py-2 text-label-md font-label-md transition-all" placeholder="Search members..." type="text">
-            </div>
-        </div>
-        <div class="flex items-center gap-4">
-            <button class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:text-secondary hover:bg-secondary/5 transition-colors">
-                <span class="material-symbols-outlined" data-icon="notifications">notifications</span>
-            </button>
-            <button class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:text-secondary hover:bg-secondary/5 transition-colors">
-                <span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
-            </button>
-            <div class="h-6 w-[1px] bg-outline-variant mx-2"></div>
-            <div class="flex items-center gap-2 cursor-pointer group">
-                <span class="font-label-md text-label-md text-on-surface group-hover:text-secondary transition-colors">MyMember HQ</span>
-                <span class="material-symbols-outlined text-outline" data-icon="expand_more">expand_more</span>
-            </div>
-        </div>
-    </header>
-
+<?= $this->section('content') ?>
     <input type="file" id="ktpInputFile" accept="image/*" class="hidden">
 
-    <!-- Main Canvas -->
-    <main class="ml-[280px] pt-16 min-h-screen">
-        <div class="p-margin-desktop max-w-[1440px] mx-auto">
+    <div class="p-margin-desktop max-w-[1440px] mx-auto">
 
             <!-- Flash Status Notice -->
             <?php if (!empty($status)): ?>
@@ -400,12 +177,9 @@
                 </section>
             </div>
         </div>
-    </main>
+<?= $this->endSection() ?>
 
-    <footer class="text-center py-6 text-xs text-outline glass-panel ml-[280px] border-t-0">
-        &copy; 2026 MyMember Admin Dashboard.
-    </footer>
-
+<?= $this->section('scripts') ?>
     <script>
         function hapusMember(nik) {
             Swal.fire({
@@ -494,7 +268,7 @@
         });
 
         // Real-time table search functionality
-        const searchInput = document.getElementById('crudSearch');
+        const searchInput = document.getElementById('globalSearch');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 const query = e.target.value.toLowerCase().trim();
@@ -581,6 +355,4 @@
             }
         }, 2000); // poll every 2 seconds
     </script>
-</body>
-
-</html>
+<?= $this->endSection() ?>

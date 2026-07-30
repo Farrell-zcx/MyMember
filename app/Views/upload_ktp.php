@@ -8,7 +8,11 @@
     ?>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Self Check-In - MyMember</title>
+    <!-- Anti-Cache Meta Tags untuk memastikan Tablet selalu mengunduh versi terbaru -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title><?= esc($title ?? 'Upload KTP') ?></title>
     <!-- Google Fonts: Hanken Grotesk -->
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
     <!-- Material Symbols -->
@@ -588,8 +592,8 @@
                     // Jangan ambil frame jika sedang memproses OCR atau video belum siap
                     if (isProcessingOCR || !videoStream || videoElement.readyState < 2) return;
 
-                    // Cek aba-aba dari Admin
-                    const res = await fetch('/kiosk/checkTrigger');
+                    // Cek aba-aba dari Admin dengan cache-buster (timestamp) agar browser tidak menggunakan cache lama
+                    const res = await fetch('/kiosk/checkTrigger?t=' + new Date().getTime());
                     const data = await res.json();
 
                     if (data.trigger === true) {
@@ -688,25 +692,31 @@
             ctx.drawImage(videoElement, 0, 0, vw, vh);
 
             // JPEG 0.7 quality (Kualitas HD yang Bening)
-            const dataUrl = streamCanvas.toDataURL('image/jpeg', 0.7);
+            streamCanvas.toBlob(async (blob) => {
+                if (!blob) {
+                    if (isLiveStreaming) setTimeout(fetchLiveFrame, 150);
+                    return;
+                }
 
-            const formData = new FormData();
-            formData.append('image', dataUrl);
-            const csrfToken = document.querySelector('input[name="csrf_test_name"]');
-            if (csrfToken) formData.append(csrfToken.name, csrfToken.value);
+                const formData = new FormData();
+                formData.append('image', blob, 'live.jpg');
+                const csrfToken = document.querySelector('input[name="csrf_test_name"]');
+                if (csrfToken) formData.append(csrfToken.name, csrfToken.value);
 
-            try {
-                await fetch('/kiosk/streamFrame', {
-                    method: 'POST',
-                    body: formData
-                });
-            } catch (e) {
-                console.error("Live Stream Error:", e);
-            }
+                try {
+                    await fetch('/kiosk/streamFrame', {
+                        method: 'POST',
+                        body: formData
+                    });
+                } catch (e) {
+                    console.error("Live Stream Error:", e);
+                }
 
-            if (isLiveStreaming) {
-                setTimeout(fetchLiveFrame, 150);
-            }
+                // Tunggu selesai fetch, lalu jeda 150ms untuk frame selanjutnya (Real-time FPS)
+                if (isLiveStreaming) {
+                    setTimeout(fetchLiveFrame, 150);
+                }
+            }, 'image/jpeg', 0.7);
         }
 
         function startLiveStream() {
