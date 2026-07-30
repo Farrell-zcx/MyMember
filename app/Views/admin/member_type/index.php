@@ -115,6 +115,13 @@
                             </div>
 
                             <?php if ($is_edit): ?>
+                                <div class="mt-2 flex items-start gap-2 bg-secondary/10 p-3 rounded-lg border border-secondary/20 mb-2">
+                                    <input type="checkbox" name="auto_checkin" value="1" id="auto_checkin" class="mt-0.5 w-4 h-4 text-secondary rounded border-outline-variant focus:ring-secondary">
+                                    <label for="auto_checkin" class="text-xs font-semibold text-secondary leading-snug">
+                                        Perpanjang & Sekaligus Check-in<br>
+                                        <span class="font-normal opacity-80">(Otomatis potong 1 kuota kunjungan baru)</span>
+                                    </label>
+                                </div>
                                 <div class="text-center pt-1">
                                     <a href="/admin/member-type" class="text-xs text-rose-600 underline font-semibold hover:text-rose-700">Batal Edit / Tambah Baru</a>
                                 </div>

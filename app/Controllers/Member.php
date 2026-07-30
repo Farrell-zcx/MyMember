@@ -16,6 +16,7 @@ class Member extends Controller
         $builder = $db->table('members');
         $builder->select('members.*, master_type_member.type_member');
         $builder->join('master_type_member', 'master_type_member.id_type = members.id_type', 'left');
+        $builder->where('members.is_deleted', 0);
         $builder->orderBy('members.created_at', 'DESC');
 
         $data['members'] = $builder->get()->getResultArray();

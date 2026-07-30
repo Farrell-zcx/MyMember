@@ -15,6 +15,12 @@ class MemberType extends Controller
         }
 
         $db      = \Config\Database::connect();
+        
+        // Cek dan tambahkan kolom is_deleted jika belum ada
+        if (!$db->fieldExists('is_deleted', 'members')) {
+            $db->query("ALTER TABLE members ADD COLUMN is_deleted TINYINT(1) DEFAULT 0");
+        }
+        
         $builder = $db->table('members');
 
         $data = [
@@ -47,10 +53,10 @@ class MemberType extends Controller
             }
         }
 
-        // GET: Handling hapus data
+        // GET: Handling hapus data (Soft Delete)
         $delete_nik = $this->request->getGet('delete');
         if ($delete_nik) {
-            $builder->where('NIK', $delete_nik)->delete();
+            $builder->where('NIK', $delete_nik)->update(['is_deleted' => 1]);
             return redirect()->to('/admin/member-type?status=terhapus');
         }
 
@@ -123,12 +129,37 @@ class MemberType extends Controller
 
             if ($action === 'update') {
                 $data_simpan['reminder_terkirim'] = 0; // Reset status email reminder
-                $builder->where('NIK', $old_nik)->update($data_simpan);
+                
+                $auto_checkin = $this->request->getPost('auto_checkin');
+                
+                $db->transStart();
+                if ($auto_checkin == '1' && $data_simpan['sisa_kuota'] > 0) {
+                    $kuota_awal = $data_simpan['sisa_kuota'];
+                    $data_simpan['sisa_kuota'] = $kuota_awal - 1;
+                    
+                    $builder->where('NIK', $old_nik)->update($data_simpan);
+                    
+                    // Insert ke log_kunjungan
+                    $db->table('log_kunjungan')->insert([
+                        'NIK'             => $old_nik, 
+                        'waktu_kunjungan' => date('Y-m-d H:i:s'),
+                        'kuota_awal'      => $kuota_awal,
+                        'kuota_akhir'     => $data_simpan['sisa_kuota']
+                    ]);
+                } else {
+                    $builder->where('NIK', $old_nik)->update($data_simpan);
+                }
+                $db->transComplete();
+                
+                if ($db->transStatus() === false) {
+                    return redirect()->to('/admin/member-type?status=gagal_update');
+                }
+                
                 return redirect()->to('/admin/member-type?status=sukses_update');
             }
         }
 
-        $data['members'] = $builder->orderBy('created_at', 'DESC')->get()->getResultArray();
+        $data['members'] = $builder->where('is_deleted', 0)->orderBy('created_at', 'DESC')->get()->getResultArray();
         return view('admin/member_type/index', $data);
     }
     
