@@ -122,6 +122,7 @@ class MemberType extends Controller
             }
 
             if ($action === 'update') {
+                $data_simpan['reminder_terkirim'] = 0; // Reset status email reminder
                 $builder->where('NIK', $old_nik)->update($data_simpan);
                 return redirect()->to('/admin/member-type?status=sukses_update');
             }

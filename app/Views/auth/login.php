@@ -180,8 +180,8 @@
             <!-- Brand Identity Header -->
             <div class="text-center mb-xl flex flex-col items-center">
                 <div class="flex items-center gap-3 mb-2">
-                    <img src="<?= base_url('images/logo.png') ?>" alt="MyMember" class="h-16 w-auto mix-blend-multiply" />
-                    <h1 class="font-headline-xl text-headline-xl text-primary tracking-tight">MyMember</h1>
+                    <img src="<?= base_url('images/logo.png?v=' . time()) ?>" alt="MyMember" class="h-20 w-auto" />
+                    <h1 class="font-headline-xl text-headline-xl text-primary tracking-tight"><span class="text-secondary">My</span>Member</h1>
                 </div>
                 <p class="font-body-md text-body-md text-on-surface-variant mt-xs">Admin Portal Access</p>
             </div>

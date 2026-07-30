@@ -91,8 +91,11 @@ class SendReminderEmail extends BaseCommand
             <body style='font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px;'>
                 <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>
                     <div style='text-align: center; border-bottom: 2px solid #0056b3; padding-bottom: 15px; margin-bottom: 20px;'>
-                        <h1 style='color: #0056b3; margin: 0;'>MyMember</h1>
-                        <p style='color: #666; margin: 5px 0 0 0; font-size: 12px;'>Membership Management System</p>
+                        <div style='margin-bottom: 5px;'>
+                            <img src='" . base_url('images/logo.png') . "' alt='Logo' style='height: 35px; vertical-align: middle; margin-right: 8px;'>
+                            <h1 style='margin: 0; font-size: 28px; color: #333333; display: inline-block; vertical-align: middle;'><span style='color: #0056b3;'>My</span>Member</h1>
+                        </div>
+                        <p style='color: #666; margin: 0; font-size: 12px;'>Membership Management System</p>
                     </div>
                     <h2 style='color: #333333;'>Halo, {$nama}!</h2>
                     <p style='color: #555555; line-height: 1.6;'>

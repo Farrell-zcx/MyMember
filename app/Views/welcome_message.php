@@ -122,12 +122,8 @@
         <div class="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-primary opacity-[0.03] blur-[150px]"></div>
     </div>
 
-    <!-- Header Logo Identity -->
-    <header class="relative z-10 w-full px-6 py-6 max-w-7xl mx-auto flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <img src="<?= base_url('images/logo.png') ?>" alt="MyMember" class="h-10 w-auto mix-blend-multiply" />
-            <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">MyMember</h1>
-        </div>
+    <!-- Header Identity -->
+    <header class="relative z-10 w-full px-6 py-6 max-w-7xl mx-auto flex justify-end">
         <span class="text-xs glass-panel text-on-surface-variant border border-outline-variant px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">
             Portal Selection
         </span>
@@ -136,7 +132,13 @@
     <!-- Main Selection Cards -->
     <main class="relative z-10 flex-grow flex flex-col items-center justify-center px-margin-mobile py-xl w-full max-w-4xl mx-auto space-y-xl">
         <!-- Title Info -->
-        <div class="text-center space-y-sm">
+        <div class="text-center space-y-sm flex flex-col items-center">
+            <!-- Centered Logo -->
+            <div class="flex items-center gap-3 mb-6">
+                <img src="<?= base_url('images/logo.png?v=' . time()) ?>" alt="MyMember" class="h-20 w-auto filter drop-shadow-md" />
+                <h1 class="font-headline-xl text-5xl text-primary tracking-tight drop-shadow-sm"><span class="font-extrabold text-[#0058be]">My</span>Member</h1>
+            </div>
+
             <h2 class="font-headline-xl text-headline-xl md:text-[40px] text-primary tracking-tight leading-tight">Selamat Datang di MyMember</h2>
             <p class="font-body-md text-body-md text-on-surface-variant max-w-lg mx-auto">
                 Silakan pilih jenis portal di bawah ini untuk memulai akses Anda ke dalam sistem.

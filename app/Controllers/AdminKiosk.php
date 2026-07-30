@@ -8,7 +8,6 @@ class AdminKiosk extends Controller
 {
     public function index()
     {
-        // Must be logged in as admin
         if (!session()->get('logged_in')) {
             return redirect()->to('/login');
         }
@@ -21,7 +20,6 @@ class AdminKiosk extends Controller
 
     public function trigger()
     {
-        // Must be logged in as admin
         if (!session()->get('logged_in')) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
         }
@@ -35,26 +33,22 @@ class AdminKiosk extends Controller
 
     public function getStreamFrame()
     {
-        // Must be logged in as admin
         if (!session()->get('logged_in')) {
             return $this->response->setStatusCode(401);
         }
 
-        $path = WRITEPATH . 'uploads/live_frame.txt';
+        $path = WRITEPATH . 'uploads/live_frame.jpg';
         
-        if (!file_exists($path) || (time() - filemtime($path)) > 15) {
+        if (!file_exists($path) || (time() - filemtime($path)) > 30) {
             return $this->response->setStatusCode(404);
         }
 
-        $frame = file_get_contents($path);
+        $binary = file_get_contents($path);
 
-        if ($frame) {
-            $data = preg_replace('#^data:image/\w+;base64,#i', '', $frame);
-            $binary = base64_decode($data);
+        if ($binary) {
             return $this->response
                 ->setHeader('Content-Type', 'image/jpeg')
-                ->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-                ->setHeader('Pragma', 'no-cache')
+                ->setHeader('Cache-Control', 'no-cache, must-revalidate')
                 ->setBody($binary);
         }
 
