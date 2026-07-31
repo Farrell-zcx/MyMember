@@ -44,7 +44,7 @@
 
 ## Overview
 
-**MyMember** adalah aplikasi full-stack yang dirancang untuk mengotomasi seluruh proses manajemen keanggotaan di tempat usaha (gym, coworking space, club, dll). Sistem ini menggantikan proses check-in manual dengan **pemindaian KTP otomatis** menggunakan kamera tablet kiosk yang dikendalikan secara remote oleh admin/resepsionis.
+**MyMember** adalah aplikasi full stack yang dirancang untuk mengotomasi seluruh proses manajemen keanggotaan di tempat usaha (gym, coworking space, club, dll). Sistem ini menggantikan proses check-in manual dengan **pemindaian KTP otomatis** menggunakan kamera tablet kiosk yang dikendalikan secara remote oleh admin/resepsionis.
 
 ### Permasalahan yang Diselesaikan
 
@@ -69,7 +69,7 @@
 
 ### Remote Kiosk Control
 - Admin mengirim sinyal capture ke tablet kiosk dari panel desktop
-- Cache-based signaling — ringan, tanpa infrastruktur tambahan
+- Cache based signaling ringan, tanpa infrastruktur tambahan
 - Tablet kiosk polling setiap 1 detik untuk menunggu instruksi
 
 ### Live Kiosk Camera Feed
