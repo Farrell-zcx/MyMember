@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use CodeIgniter\Controller;
 use App\Models\MemberTypeModel;
+use App\Models\MemberModel;
 use Config\Services;
 
 class MemberType extends Controller
@@ -14,15 +15,8 @@ class MemberType extends Controller
             return redirect()->to('/login');
         }
 
-        $db      = \Config\Database::connect();
+        $memberModel = new MemberModel();
         
-        // Cek dan tambahkan kolom is_deleted jika belum ada
-        if (!$db->fieldExists('is_deleted', 'members')) {
-            $db->query("ALTER TABLE members ADD COLUMN is_deleted TINYINT(1) DEFAULT 0");
-        }
-        
-        $builder = $db->table('members');
-
         $data = [
             'nik'                => '',
             'nama_lengkap'       => '',
@@ -39,24 +33,24 @@ class MemberType extends Controller
         // GET: Ambil data untuk mode edit
         $edit_nik = $this->request->getGet('edit');
         if ($edit_nik) {
-            $member = $builder->getWhere(['NIK' => $edit_nik])->getRow();
+            $member = $memberModel->where('NIK', $edit_nik)->first();
             if ($member) {
-                $data['nik']                = $member->NIK;
-                $data['nama_lengkap']       = $member->nama_lengkap;
-                $data['nomor_hp']           = $member->nomor_hp;
-                $data['email']              = $member->email;
-                $data['id_type']            = $member->id_type;
-                $data['sisa_kuota']         = $member->sisa_kuota;
-                $data['tgl_expired_member'] = $member->tgl_expired_member;
+                $data['nik']                = $member['NIK'];
+                $data['nama_lengkap']       = $member['nama_lengkap'];
+                $data['nomor_hp']           = $member['nomor_hp'];
+                $data['email']              = $member['email'];
+                $data['id_type']            = $member['id_type'];
+                $data['sisa_kuota']         = $member['sisa_kuota'];
+                $data['tgl_expired_member'] = $member['tgl_expired_member'];
                 $data['is_edit']            = true;
-                $data['old_nik']            = $member->NIK;
+                $data['old_nik']            = $member['NIK'];
             }
         }
 
         // GET: Handling hapus data (Soft Delete)
         $delete_nik = $this->request->getGet('delete');
         if ($delete_nik) {
-            $builder->where('NIK', $delete_nik)->update(['is_deleted' => 1]);
+            $memberModel->where('NIK', $delete_nik)->set(['is_deleted' => 1])->update();
             return redirect()->to('/admin/member-type?status=terhapus');
         }
 
@@ -71,95 +65,30 @@ class MemberType extends Controller
                 'nama_lengkap'       => $this->request->getPost('nama_lengkap'),
                 'nomor_hp'           => $this->request->getPost('nomor_hp'),
                 'email'              => $this->request->getPost('email'),
-
-                // Jika ID Type kosong, isi angka 1 (sesuaikan ID master)
-                'id_type' => !empty($this->request->getPost('id_type')) ? intval($this->request->getPost('id_type')) : 2,
-
+                'id_type'            => !empty($this->request->getPost('id_type')) ? intval($this->request->getPost('id_type')) : 2,
                 'sisa_kuota'         => !empty($this->request->getPost('sisa_kuota')) ? intval($this->request->getPost('sisa_kuota')) : 0,
                 'tgl_expired_member' => !empty($this->request->getPost('tgl_expired_member')) ? $this->request->getPost('tgl_expired_member') : null,
-                'updated_at'         => date('Y-m-d H:i:s')
             ];
 
             if ($action === 'create') {
-                $data_simpan['created_at'] = date('Y-m-d H:i:s');
-                
-                // Ambil data kuota master dan masa aktif berdasarkan id_type
-                $masterType = $db->table('master_type_member')->where('id_type', $data_simpan['id_type'])->get()->getRow();
-                
-                $kuota_master = $masterType && isset($masterType->kuota_kunjungan) ? (int)$masterType->kuota_kunjungan : 0;
-                $masa_aktif_hari = $masterType && isset($masterType->masa_aktif_hari) ? (int)$masterType->masa_aktif_hari : 0;
-                
-                // Jika input tanggal kedaluwarsa kosong, set otomatis berdasarkan master (dihitung dari tanggal hari ini)
-                if (empty($data_simpan['tgl_expired_member']) && $masa_aktif_hari > 0) {
-                    $data_simpan['tgl_expired_member'] = date('Y-m-d', strtotime("+$masa_aktif_hari days"));
-                }
-                
-                // Jika input sisa_kuota kosong/0, gunakan kuota dari master
-                if (empty($data_simpan['sisa_kuota']) || $data_simpan['sisa_kuota'] == 0) {
-                    $kuota_awal = $kuota_master;
-                } else {
-                    $kuota_awal = (int)$data_simpan['sisa_kuota'];
-                }
-                
-                // Potong 1 kuota untuk check-in pertama
-                $kuota_akhir = $kuota_awal > 0 ? $kuota_awal - 1 : 0;
-                $data_simpan['sisa_kuota'] = $kuota_akhir;
-
-                $db->transStart();
-                
-                // Insert ke tabel members
-                $builder->insert($data_simpan);
-                
-                // Insert ke log_kunjungan sebagai check-in perdana
-                $db->table('log_kunjungan')->insert([
-                    'NIK'             => $data_simpan['NIK'],
-                    'waktu_kunjungan' => date('Y-m-d H:i:s'),
-                    'kuota_awal'      => $kuota_awal,
-                    'kuota_akhir'     => $kuota_akhir
-                ]);
-                
-                $db->transComplete();
-
-                if ($db->transStatus() === false) {
+                $sukses = $memberModel->simpanDataBaru($data_simpan);
+                if (!$sukses) {
                     return redirect()->to('/admin/member-type?status=gagal_simpan');
                 }
-
                 return redirect()->to('/admin/member-type?status=sukses_simpan');
             }
 
             if ($action === 'update') {
-                $data_simpan['reminder_terkirim'] = 0; // Reset status email reminder
-                
                 $auto_checkin = $this->request->getPost('auto_checkin');
-                
-                $db->transStart();
-                if ($auto_checkin == '1' && $data_simpan['sisa_kuota'] > 0) {
-                    $kuota_awal = $data_simpan['sisa_kuota'];
-                    $data_simpan['sisa_kuota'] = $kuota_awal - 1;
-                    
-                    $builder->where('NIK', $old_nik)->update($data_simpan);
-                    
-                    // Insert ke log_kunjungan
-                    $db->table('log_kunjungan')->insert([
-                        'NIK'             => $old_nik, 
-                        'waktu_kunjungan' => date('Y-m-d H:i:s'),
-                        'kuota_awal'      => $kuota_awal,
-                        'kuota_akhir'     => $data_simpan['sisa_kuota']
-                    ]);
-                } else {
-                    $builder->where('NIK', $old_nik)->update($data_simpan);
-                }
-                $db->transComplete();
-                
-                if ($db->transStatus() === false) {
+                $sukses = $memberModel->updateDataMember($old_nik, $data_simpan, $auto_checkin);
+                if (!$sukses) {
                     return redirect()->to('/admin/member-type?status=gagal_update');
                 }
-                
                 return redirect()->to('/admin/member-type?status=sukses_update');
             }
         }
 
-        $data['members'] = $builder->where('is_deleted', 0)->orderBy('created_at', 'DESC')->get()->getResultArray();
+        $data['members'] = $memberModel->where('is_deleted', 0)->orderBy('created_at', 'DESC')->findAll();
         return view('admin/member_type/index', $data);
     }
     
@@ -187,7 +116,7 @@ class MemberType extends Controller
         return redirect()->to('/admin/member-type');
     }
 
-    public function edit($id)
+    public function edit(string $id = null)
     {
         if (!session()->get('logged_in')) {
             return redirect()->to('/login');
@@ -203,7 +132,7 @@ class MemberType extends Controller
         return view('admin/member_type/edit', $data);
     }
 
-    public function update($id)
+    public function update(string $id = null)
     {
         if (!session()->get('logged_in')) {
             return redirect()->to('/login');
@@ -219,7 +148,7 @@ class MemberType extends Controller
         return redirect()->to('/admin/member-type');
     }
 
-    public function delete($id)
+    public function delete(string $id = null)
     {
         if (!session()->get('logged_in')) {
             return redirect()->to('/login');
@@ -256,6 +185,7 @@ class MemberType extends Controller
                 ]);
             }
 
+            log_message('error', 'OCR RAW RESPONSE: ' . $response->getBody());
             return $this->response->setJSON(json_decode($response->getBody(), true));
         } catch (\Exception $e) {
             return $this->response->setJSON([
