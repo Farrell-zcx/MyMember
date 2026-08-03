@@ -71,6 +71,22 @@ class MemberType extends Controller
             ];
 
             if ($action === 'create') {
+                $auto_checkin = $this->request->getPost('auto_checkin');
+
+                // Cek apakah NIK sudah ada di database
+                $existing = $memberModel->where('NIK', $data_simpan['NIK'])->first();
+                if ($existing) {
+                    // Lakukan UPSERT/Update jika data sudah ada
+                    $nik_target = !empty($old_nik) ? $old_nik : $data_simpan['NIK'];
+                    $sukses = $memberModel->updateDataMember($nik_target, $data_simpan, $auto_checkin);
+                    
+                    if (!$sukses) {
+                        return redirect()->to('/admin/member-type?status=gagal_update');
+                    }
+                    return redirect()->to('/admin/member-type?status=sukses_update');
+                }
+
+                // Jika NIK belum ada, lakukan INSERT (Create)
                 $sukses = $memberModel->simpanDataBaru($data_simpan);
                 if (!$sukses) {
                     return redirect()->to('/admin/member-type?status=gagal_simpan');
