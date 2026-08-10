@@ -12,7 +12,7 @@ class AdminModel extends Model
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    protected $allowedFields    = ['username', 'password', 'nama_resepsionis'];
+    protected $allowedFields    = ['username', 'password', 'nama_resepsionis', 'email', 'sso_user_id', 'synced_at'];
 
     protected bool $allowEmptyInserts = false;
     protected bool $updateOnlyChanged = true;

@@ -4,11 +4,16 @@ use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
 $routes->get('/', 'Home::index');
+
+// Auth routes — login/register redirect ke SSO Engine
 $routes->get('login', 'Auth::login');
-$routes->post('login/process', 'Auth::loginProcess');
-$routes->get('register', 'Auth::register');
-$routes->post('register/process', 'Auth::registerProcess');
+$routes->post('login/process', 'Auth::login');   // Redirect ke SSO (form lokal dinonaktifkan)
+$routes->get('register', 'Auth::register');       // Redirect ke SSO
+$routes->post('register/process', 'Auth::register'); // Redirect ke SSO
 $routes->get('logout', 'Auth::logout');
+
+// SSO Callback — menerima redirect dari SSO Engine setelah login
+$routes->get('auth/callback', 'SsoCallback::handle');
 
 // Route dashboard mengarah ke halaman Dashboard Ringkasan
 $routes->get('admin/dashboard', 'Dashboard::index');

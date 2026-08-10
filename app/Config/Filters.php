@@ -34,6 +34,8 @@ class Filters extends BaseFilters
         'forcehttps'    => ForceHTTPS::class,
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
+        'ssoAuth'       => \App\Filters\SsoAuthFilter::class,
+        'tokenRefresh'  => \App\Filters\TokenRefreshFilter::class,
     ];
 
     /**
@@ -106,5 +108,12 @@ class Filters extends BaseFilters
      *
      * @var array<string, array<string, list<string>>>
      */
-    public array $filters = [];
+    public array $filters = [
+        'ssoAuth' => [
+            'before' => ['admin', 'admin/*'],
+        ],
+        'tokenRefresh' => [
+            'before' => ['admin', 'admin/*'],
+        ],
+    ];
 }
