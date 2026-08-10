@@ -2,8 +2,6 @@
 
 namespace App\Controllers;
 
-use App\Models\AdminModel;
-
 class Auth extends BaseController
 {
     /**
@@ -35,11 +33,14 @@ class Auth extends BaseController
     }
 
     /**
-     * Register dinonaktifkan — redirect ke SSO.
+     * Register dinonaktifkan secara lokal — redirect ke SSO Register.
      */
     public function register()
     {
-        return $this->login();
+        $ssoBaseUrl  = env('sso.baseUrl');
+        $registerUrl = rtrim($ssoBaseUrl, '/') . '/register';
+
+        return redirect()->to($registerUrl);
     }
 
     /**
