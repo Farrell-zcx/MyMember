@@ -77,7 +77,7 @@ class Auth extends BaseController
         // Destroy session lokal
         session()->destroy();
 
-        // Redirect ke SSO untuk login ulang
-        return $this->login();
+        // Redirect ke Portal Welcome Message
+        return redirect()->to('/');
     }
 }
