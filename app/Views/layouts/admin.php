@@ -142,6 +142,7 @@
         ['url' => 'admin/member', 'icon' => 'group', 'label' => 'Daftar Member'],
         ['url' => 'admin/member-type', 'icon' => 'card_membership', 'label' => 'Kelola Member'],
         ['url' => 'admin/log-kunjungan', 'icon' => 'history', 'label' => 'Riwayat Kunjungan'],
+        ['url' => 'admin/users', 'icon' => 'manage_accounts', 'label' => 'Kelola Pengguna'],
     ];
     ?>
     <nav class="flex-1 space-y-2 px-3">

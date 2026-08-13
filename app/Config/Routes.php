@@ -22,6 +22,9 @@ $routes->get('admin/dashboard/live', 'Dashboard::getLiveStats');
 // Route untuk Daftar Member (Read Only)
 $routes->get('admin/member', 'Member::index');
 
+// Route Kelola Pengguna
+$routes->get('admin/users', 'AdminUserController::index');
+
 // Route untuk Riwayat Kunjungan
 $routes->get('admin/log-kunjungan', 'LogKunjungan::index');
 $routes->get('admin/log-kunjungan/live', 'LogKunjungan::getLiveLogs');

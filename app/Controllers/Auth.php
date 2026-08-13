@@ -10,6 +10,11 @@ class Auth extends BaseController
      */
     public function login()
     {
+        // Jika ada pesan error dari callback, jangan redirect untuk mencegah infinite loop
+        if (session()->getFlashdata('msg')) {
+            return view('auth/login', ['msg' => session()->getFlashdata('msg')]);
+        }
+
         // Jika sudah login, langsung ke dashboard
         if (session()->get('logged_in')) {
             return redirect()->to('/admin/dashboard');
@@ -78,7 +83,10 @@ class Auth extends BaseController
         // Destroy session lokal
         session()->destroy();
 
-        // Redirect ke Portal Welcome Message
-        return redirect()->to('/');
+        // Redirect ke SSO Engine logout-web dengan redirect_to beranda MyMember
+        $ssoBaseUrl = env('sso.baseUrl');
+        $logoutUrl = rtrim($ssoBaseUrl, '/') . '/logout-web?redirect_to=' . urlencode(base_url('/'));
+        
+        return redirect()->to($logoutUrl);
     }
 }
