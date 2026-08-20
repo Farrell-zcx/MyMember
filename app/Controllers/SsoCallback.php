@@ -18,7 +18,7 @@ class SsoCallback extends BaseController
 {
     public function handle()
     {
-        // 1. Ambil parameter dari query string
+        // Ambil parameter dari query string
         $accessToken  = $this->request->getGet('access_token');
         $refreshToken = $this->request->getGet('refresh_token');
         $state        = $this->request->getGet('state');
@@ -29,7 +29,7 @@ class SsoCallback extends BaseController
                 ->with('msg', 'Parameter callback tidak lengkap. Silakan login ulang.');
         }
 
-        // 2. Validasi state (anti-CSRF)
+        // Validasi state (anti-CSRF)
         $savedState = session()->get('sso_state');
         if (empty($savedState) || $state !== $savedState) {
             session()->remove('sso_state');
@@ -38,7 +38,7 @@ class SsoCallback extends BaseController
         }
         session()->remove('sso_state');
 
-        // 3. Decode & validasi JWT
+        // Decode & validasi JWT
         $claims = $this->validateJwt($accessToken);
 
         if ($claims === null) {
@@ -46,23 +46,23 @@ class SsoCallback extends BaseController
                 ->with('msg', 'Token SSO tidak valid atau sudah kadaluarsa. Silakan login ulang.');
         }
 
-        // 4. JIT Provisioning — cek/insert/update tabel admin lokal
+        // JIT Provisioning cek/insert/update tabel admin lokal
         $admin = $this->jitProvision($claims);
 
-        // 5. Buat sesi CI4
         session()->set([
             'id_admin'         => $admin['id_admin'],
             'username'         => $admin['username'],
             'nama_resepsionis' => $admin['nama_resepsionis'],
             'email'            => $admin['email'],
             'sso_user_id'      => $claims->sub,
+            'jti'              => $claims->jti ?? null,
             'access_token'     => $accessToken,
             'refresh_token'    => $refreshToken,
             'token_expires_at' => $claims->exp,
             'logged_in'        => true,
         ]);
 
-        // 6. Redirect ke dashboard
+        // Redirect ke dashboard
         return redirect()->to('/admin/dashboard');
     }
 
@@ -77,7 +77,7 @@ class SsoCallback extends BaseController
     {
         $ssoPublicKey = new SsoPublicKey();
 
-        // Percobaan 1: pakai cached key
+        // pakai cached key
         try {
             $publicKey = $ssoPublicKey->getKey(false);
             return JWT::decode($token, new Key($publicKey, 'RS256'));
@@ -88,7 +88,7 @@ class SsoCallback extends BaseController
             return null;
         }
 
-        // Percobaan 2: force-refresh key (mungkin key sudah dirotasi)
+        // force-refresh key (mungkin key sudah dirotasi)
         try {
             $publicKey = $ssoPublicKey->getKey(true);
             return JWT::decode($token, new Key($publicKey, 'RS256'));
@@ -123,7 +123,7 @@ class SsoCallback extends BaseController
         }
 
         if ($admin) {
-            // UPDATE: sinkronisasi data dari SSO
+            // UPDATE sinkronisasi data dari SSO
             $updateData = [
                 'sso_user_id' => $claims->sub,
                 'email'       => $claims->email,
@@ -142,10 +142,10 @@ class SsoCallback extends BaseController
             return $model->find($admin['id_admin']);
         }
 
-        // INSERT: admin baru via JIT
+        // INSERT admin baru via JIT
         $model->insert([
             'username'         => $claims->username,
-            'password'         => '',  // Tidak dipakai — login via SSO
+            'password'         => '',  // Tidak dipakai login via SSO
             'nama_resepsionis' => $claims->username, // Placeholder, bisa diedit nanti
             'email'            => $claims->email,
             'sso_user_id'      => $claims->sub,

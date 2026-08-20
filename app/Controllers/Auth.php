@@ -38,14 +38,11 @@ class Auth extends BaseController
     }
 
     /**
-     * Register dinonaktifkan secara lokal — redirect ke SSO Register.
+     * Register dinonaktifkan pendaftaran hanya melalui Admin SSO Pusat.
      */
     public function register()
     {
-        $ssoBaseUrl  = env('sso.baseUrl');
-        $registerUrl = rtrim($ssoBaseUrl, '/') . '/register';
-
-        return redirect()->to($registerUrl);
+        return redirect()->to('/login');
     }
 
     /**
