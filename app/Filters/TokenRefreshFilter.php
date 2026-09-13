@@ -88,7 +88,7 @@ class TokenRefreshFilter implements FilterInterface
      */
     private function doRefresh(string $refreshToken): array
     {
-        $ssoBaseUrl = env('sso.baseUrl');
+        $ssoBaseUrl = env('sso.internalUrl') ?: env('sso.baseUrl');
         $clientId   = env('sso.clientId');
 
         $url = rtrim($ssoBaseUrl, '/') . '/refresh-token';
