@@ -31,7 +31,8 @@ class OcrController extends BaseController
 
         try {
             // Kirim file sebagai multipart data ke FastAPI
-            $response = $client->request('POST', 'http://127.0.0.1:8000/extract-ktp', [
+            $ocrBase = env('OCR_BASE_URL', 'http://127.0.0.1:8000');
+            $response = $client->request('POST', rtrim($ocrBase, '/') . '/extract-ktp', [
                 'http_errors' => false,
                 'multipart' => [
                     'ktp_image' => new \CURLFile($file->getTempName(), $file->getMimeType(), $file->getName())

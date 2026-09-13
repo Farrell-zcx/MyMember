@@ -59,8 +59,8 @@ class Auth extends BaseController
         // Panggil SSO logout (best-effort, abaikan error)
         if (!empty($refreshToken)) {
             try {
-                $ssoBaseUrl = env('sso.baseUrl');
-                $url = rtrim($ssoBaseUrl, '/') . '/logout';
+                $ssoInternalUrl = env('sso.internalUrl') ?: env('sso.baseUrl', 'http://sso-engine.test');
+                $url = rtrim($ssoInternalUrl, '/') . '/logout';
 
                 $client = \Config\Services::curlrequest();
                 $client->post($url, [
