@@ -168,6 +168,7 @@ class LogKunjungan extends Controller
 
     public function exportPdf()
     {
+        ini_set('memory_limit', '512M');
         if (!session()->get('logged_in')) {
             return redirect()->to('/login');
         }
