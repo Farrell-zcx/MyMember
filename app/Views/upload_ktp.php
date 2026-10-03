@@ -663,7 +663,7 @@
                     console.error("SmartScan Error:", e);
                     updateScanStatus("Terjadi error koneksi.", "bg-red-500", false);
                 }
-            }, 1000); // Cek setiap 1 detik
+            }, 300); // Cek setiap 300ms untuk respon instan
         }
 
         let isLiveStreaming = false;
@@ -680,21 +680,23 @@
             let vw = videoElement.videoWidth;
             let vh = videoElement.videoHeight;
             if (!vw || !vh) {
-                setTimeout(fetchLiveFrame, 150);
+                setTimeout(fetchLiveFrame, 40);
                 return;
             }
 
-            // Gunakan resolusi native tanpa kompresi/scaling
-            streamCanvas.width = vw;
-            streamCanvas.height = vh;
+            // Resolusi stream khusus live preview admin (~10KB per frame, ~25 FPS real-time)
+            const targetWidth = 640;
+            const targetHeight = Math.round(targetWidth * (vh / vw));
+            streamCanvas.width = targetWidth;
+            streamCanvas.height = targetHeight;
 
             const ctx = streamCanvas.getContext('2d');
-            ctx.drawImage(videoElement, 0, 0, vw, vh);
+            ctx.drawImage(videoElement, 0, 0, targetWidth, targetHeight);
 
-            // JPEG 0.7 quality (Kualitas HD yang Bening)
+            // JPEG 0.55 quality (sangat ringan ~10KB dan tetap jernih untuk preview admin)
             streamCanvas.toBlob(async (blob) => {
                 if (!blob) {
-                    if (isLiveStreaming) setTimeout(fetchLiveFrame, 150);
+                    if (isLiveStreaming) setTimeout(fetchLiveFrame, 40);
                     return;
                 }
 
@@ -712,11 +714,11 @@
                     console.error("Live Stream Error:", e);
                 }
 
-                // Tunggu selesai fetch, lalu jeda 150ms untuk frame selanjutnya (Real-time FPS)
+                // Jeda 40ms untuk mencapai ~25 FPS mulus tanpa lag
                 if (isLiveStreaming) {
-                    setTimeout(fetchLiveFrame, 150);
+                    setTimeout(fetchLiveFrame, 40);
                 }
-            }, 'image/jpeg', 0.7);
+            }, 'image/jpeg', 0.55);
         }
 
         function startLiveStream() {

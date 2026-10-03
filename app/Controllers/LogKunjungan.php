@@ -158,17 +158,17 @@ class LogKunjungan extends Controller
 
         $writer = new Xlsx($spreadsheet);
         $filename = 'Histori_Kunjungan_' . date('Ymd_His') . '.xlsx';
+        $tempPath = WRITEPATH . 'cache/' . $filename;
+        $writer->save($tempPath);
 
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="' . $filename . '"');
-        header('Cache-Control: max-age=0');
-        
-        $writer->save('php://output');
-        exit;
+        return $this->response->download($tempPath, null)
+            ->setFileName($filename)
+            ->setContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }
 
     public function exportPdf()
     {
+        ini_set('memory_limit', '512M');
         if (!session()->get('logged_in')) {
             return redirect()->to('/login');
         }
@@ -181,7 +181,13 @@ class LogKunjungan extends Controller
 
         $html = view('admin/export/pdf_log_kunjungan', $data);
 
+        $tempDir = WRITEPATH . 'cache/mpdf';
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0777, true);
+        }
+
         $mpdf = new Mpdf([
+            'tempDir' => $tempDir,
             'mode' => 'utf-8', 
             'format' => 'A4',
             'orientation' => 'P',
@@ -199,7 +205,13 @@ class LogKunjungan extends Controller
         
         $filename = 'Histori_Kunjungan_' . date('Ymd_His') . '.pdf';
         
-        $mpdf->Output($filename, \Mpdf\Output\Destination::INLINE);
-        exit;
+        $pdfContent = $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
+        
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', 'inline; filename="' . $filename . '"')
+            ->setHeader('Cache-Control', 'private, max-age=0, must-revalidate')
+            ->setHeader('Pragma', 'public')
+            ->setBody($pdfContent);
     }
 }

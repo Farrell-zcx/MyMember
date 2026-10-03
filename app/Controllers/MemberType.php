@@ -184,10 +184,14 @@ class MemberType extends Controller
             return $this->response->setJSON(['status' => 'error', 'pesan' => 'File tidak valid.']);
         }
 
+        $isDocker = isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
+        $defaultOcr = $isDocker ? 'http://mymember-ocr:8000' : 'http://127.0.0.1:8000';
+        $ocrBase = env('OCR_BASE_URL') ?: $defaultOcr;
+
         // Tembak FastAPI secara internal dari server ke server
         $client = Services::curlrequest();
         try {
-            $response = $client->request('POST', 'http://127.0.0.1:8000/extract-ktp', [
+            $response = $client->request('POST', rtrim($ocrBase, '/') . '/extract-ktp', [
                 'http_errors' => false,
                 'multipart' => [
                     'ktp_image' => new \CURLFile($file->getTempName(), $file->getMimeType(), $file->getName())
