@@ -75,7 +75,7 @@
                     <tbody id="logsTableBody" class="text-xs text-on-surface divide-y divide-surface-container">
                         <?php if (empty($logs)): ?>
                             <tr>
-                                <td colspan="5" class="py-12 text-center text-outline italic">
+                                <td colspan="6" class="py-12 text-center text-outline italic">
                                     Belum ada data kunjungan.
                                 </td>
                             </tr>
