@@ -88,7 +88,7 @@ class SendReminderEmail extends BaseCommand
 
             // Gunakan URL gambar publik resmi agar logo muncul di header tanpa menjadi attachment download di bawah
             $logoUrl = 'https://mymember.tech/images/logo.png';
-            $logoTag = "<img src='{$logoUrl}' alt='Logo' style='height: 38px; vertical-align: middle; margin-right: 8px;'>";
+            $logoTag = '<img src="' . $logoUrl . '" alt="MyMember Logo" width="40" height="40" style="height: 40px; width: auto; vertical-align: middle; margin-right: 8px; border: 0;">';
 
             // Template Email HTML
             $message = "
@@ -126,11 +126,11 @@ class SendReminderEmail extends BaseCommand
             $altMessage = "Halo, {$nama}!\n\nKami ingin menginformasikan bahwa masa aktif keanggotaan MyMember Anda akan segera berakhir dalam 2 hari lagi.\nTanggal Kadaluarsa: {$tglExpired}\n\nAgar dapat terus menggunakan fasilitas tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.\n\nHubungi admin di tempat untuk informasi perpanjangan paket.\n\nSalam,\nMyMember Official";
 
             $fromEmail = config('Email')->fromEmail ?: (getenv('MYMEMBER_EMAIL_FROM') ?: getenv('SMTP_USER'));
-            $fromName  = config('Email')->fromName ?: 'MyMember Official';
+            $fromName  = 'Farrel Labib - MyMember';
             $emailService->setFrom($fromEmail, $fromName);
 
             $emailService->setTo($member->email);
-            $emailService->setSubject('Pemberitahuan Kadaluarsa Membership (H-2)');
+            $emailService->setSubject('[MyMember] Pengingat Masa Aktif Membership (H-2)');
             $emailService->setMessage($message);
             $emailService->setAltMessage($altMessage);
 
