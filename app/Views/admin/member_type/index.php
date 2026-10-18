@@ -233,7 +233,7 @@
             formData.append('ktp_image', file);
 
             try {
-                const response = await fetch('<?= base_url("admin/member-type/scan-ocr") ?>', {
+                const response = await fetch('/admin/member-type/scan-ocr', {
                     method: 'POST',
                     body: formData
                 });
@@ -246,7 +246,7 @@
                         document.querySelector('input[name="nik"]').value = data.nik;
 
                         // Fetch existing member details if NIK is already registered
-                        fetch(`<?= base_url('ocr/get-member') ?>?nik=${data.nik}`)
+                        fetch(`/ocr/get-member?nik=${data.nik}`)
                             .then(res => res.json())
                             .then(memberResult => {
                                 if (memberResult.status === 'sukses' && memberResult.exists) {
@@ -315,7 +315,7 @@
         // Real-time Kiosk Sync (Polling)
         setInterval(async () => {
             try {
-                const response = await fetch('<?= base_url("admin/member-type/poll-scan") ?>?t=' + new Date().getTime());
+                const response = await fetch('/admin/member-type/poll-scan?t=' + new Date().getTime());
                 if (response.status !== 200) return;
                 const result = await response.json();
 
@@ -325,7 +325,7 @@
                         document.querySelector('input[name="nik"]').value = data.nik;
 
                         // Fetch existing member details if NIK is already registered
-                        fetch(`<?= base_url('ocr/get-member') ?>?nik=${data.nik}`)
+                        fetch(`/ocr/get-member?nik=${data.nik}`)
                             .then(res => res.json())
                             .then(memberResult => {
                                 if (memberResult.status === 'sukses' && memberResult.exists) {

@@ -109,6 +109,16 @@
 
 <?= $this->section('scripts') ?>
 <script>
+    // Helper function to escape HTML to prevent XSS and crashes
+    function escapeHtml(unsafe) {
+        return (unsafe || '').toString()
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    }
+
     // Real-time table search functionality
     const searchInput = document.getElementById('globalSearch');
 
@@ -153,7 +163,7 @@
             const startDate = urlParams.get('start_date') || '';
             const endDate = urlParams.get('end_date') || '';
 
-            const response = await fetch('<?= base_url("admin/log-kunjungan/live") ?>?t=' + new Date().getTime() + '&start_date=' + startDate + '&end_date=' + endDate);
+            const response = await fetch('/admin/log-kunjungan/live?t=' + new Date().getTime() + '&start_date=' + encodeURIComponent(startDate) + '&end_date=' + encodeURIComponent(endDate));
             if (response.status !== 200) return;
             const result = await response.json();
 
@@ -163,32 +173,30 @@
 
                 if (result.data.length === 0) {
                     newHtml = `<tr>
-                        <td colspan="5" class="py-12 text-center text-outline italic">
+                        <td colspan="6" class="py-12 text-center text-outline italic">
                             Belum ada data kunjungan.
                         </td>
                     </tr>`;
                 } else {
                     result.data.forEach(log => {
-                        const isNew = !knownLogIds.has(log.id_kunjungan);
+                        const idStr = String(log.id_kunjungan);
+                        const isNew = !knownLogIds.has(idStr);
                         const rowClass = isNew ? 'glass-table-row row-highlight hover:bg-surface-container/50 transition-colors' : 'glass-table-row hover:bg-surface-container/50 transition-colors border-b border-surface-container';
 
                         // Tandai sebagai sudah diketahui
-                        if (isNew) knownLogIds.add(log.id_kunjungan);
+                        knownLogIds.add(idStr);
 
-                        const namaLengkap = log.nama_lengkap ? log.nama_lengkap : 'Tidak Diketahui';
-                        const typeMember = log.type_member ? log.type_member : '-';
-
-                        // Menjaga agar ID tetap aman (sanitize string)
-                        const safeNik = log.NIK.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                        const safeNama = namaLengkap.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                        const safeTipe = typeMember.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        const namaLengkap = escapeHtml(log.nama_lengkap || 'Tidak Diketahui');
+                        const typeMember = escapeHtml(log.type_member || '-');
+                        const safeNik = escapeHtml(log.NIK || '-');
+                        const waktuFormat = log.waktu_format || log.waktu_kunjungan;
 
                         newHtml += `
                             <tr class="${rowClass}">
-                                <td class="py-3.5 px-4 font-mono font-semibold">${log.waktu_format}</td>
+                                <td class="py-3.5 px-4 font-mono font-semibold">${waktuFormat}</td>
                                 <td class="py-3.5 px-4 font-mono font-bold text-on-surface">${safeNik}</td>
-                                <td class="py-3.5 px-4 font-semibold">${safeNama}</td>
-                                <td class="py-3.5 px-4 font-semibold">${safeTipe}</td>
+                                <td class="py-3.5 px-4 font-semibold">${namaLengkap}</td>
+                                <td class="py-3.5 px-4 font-semibold">${typeMember}</td>
                                 <td class="py-3.5 px-4 text-center">
                                     <span class="inline-flex items-center justify-center bg-surface-container-high px-2 py-1 rounded font-bold">
                                         ${log.kuota_awal}
@@ -208,7 +216,9 @@
                 // Aplikasikan kembali filter pencarian setelah data dirender ulang
                 applySearchFilter();
             }
-        } catch (e) {}
+        } catch (e) {
+            console.error('Error polling live logs:', e);
+        }
     }, 2000);
 </script>
 <?= $this->endSection() ?>
