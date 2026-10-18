@@ -4,7 +4,10 @@ import difflib
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.config import settings
-from services.image_processing import _analyze_image_quality, NIK_PIPELINES, TEXT_PIPELINES
+from services.image_processing import (
+    _analyze_image_quality, NIK_PIPELINES, TEXT_PIPELINES,
+    nik_pipe_scanner_fix, nik_pipe_gentle, nik_pipe_sharp_adaptive, text_pipe_standard
+)
 
 pytesseract.pytesseract.tesseract_cmd = settings.TESSERACT_CMD_PATH
 
@@ -30,6 +33,10 @@ CHAR_FIX = {
     'g': '9', 'q': '9',
 }
 
+CHAR_FIX_DOB = dict(CHAR_FIX)
+CHAR_FIX_DOB.update({
+    'n': '0', 'u': '0', 'A': '4', 'a': '4'
+})
 
 # Mapping nama provinsi di KTP → 2 digit kode
 PROVINSI_NAME_TO_CODE = {
@@ -72,7 +79,7 @@ PROVINSI_NAME_TO_CODE = {
 }
 
 def _is_valid_nik(nik):
-    if len(nik) != 16 or not nik.isdigit():
+    if not nik or len(nik) != 16 or not nik.isdigit():
         return False
 
     provinsi = int(nik[0:2])
@@ -92,7 +99,7 @@ def _is_valid_nik(nik):
     return True
 
 def _is_plausible_nik(nik):
-    if len(nik) != 16 or not nik.isdigit():
+    if not nik or len(nik) != 16 or not nik.isdigit():
         return False
     provinsi = int(nik[0:2])
     if provinsi not in PROVINSI_VALID:
@@ -111,8 +118,9 @@ def _ocr_worker(processed_img, config):
 # EKSTRAKSI NIK — VOTING + CROSS-VALIDATION
 def _find_valid_niks(text):
     results = []
+    if not text:
+        return results
     for line in text.split('\n'):
-        # Terapkan koreksi karakter fuzzy terlebih dahulu agar karakter huruf tidak di-strip sia-sia
         fixed_line = "".join(CHAR_FIX.get(c, c) for c in line)
         digits = re.sub(r'[^0-9]', '', fixed_line.strip())
 
@@ -133,7 +141,6 @@ def _find_valid_niks(text):
 
     return results
 
-
 def _vote_nik(candidates):
     if not candidates:
         return None
@@ -146,7 +153,6 @@ def _vote_nik(candidates):
         result.append(votes.most_common(1)[0][0])
     return "".join(result)
 
-
 def _get_dob_match_score(candidate, dob):
     if len(candidate) != 16 or len(dob) != 6:
         return 0
@@ -156,12 +162,10 @@ def _get_dob_match_score(candidate, dob):
             score += 1
     return score
 
-
 def _reconstruct_nik(candidates, dob_digits, provinsi_code):
     if not candidates:
         return "Tidak terdeteksi"
 
-    # Filter & bobot candidates secara dinamis berdasarkan kecocokan DOB & Provinsi
     filtered_candidates = []
     for c, w in candidates:
         score = _get_dob_match_score(c, dob_digits) if (dob_digits and len(dob_digits) == 6) else 6
@@ -170,14 +174,12 @@ def _reconstruct_nik(candidates, dob_digits, provinsi_code):
             if c[0:2] == provinsi_code:
                 prov_match = 2
                 
-        # Jika DOB tersedia dan score < 3, maka ini adalah kandidat tergeser (shifted) dan dibuang
         if dob_digits and len(dob_digits) == 6 and score < 3:
             continue
             
         dynamic_weight = w * (score + prov_match)
         filtered_candidates.append((c, dynamic_weight))
 
-    # Fallback jika semua terfilter (misalnya karena noise parah), gunakan semua kandidat awal
     if not filtered_candidates:
         filtered_candidates = candidates
 
@@ -188,10 +190,8 @@ def _reconstruct_nik(candidates, dob_digits, provinsi_code):
         votes = Counter()
         for c, w in filtered_candidates:
             votes[c[pos]] += w
-        # Jika ada provinsi_code dari teks, beri bonus suara mutlak (+1000) untuk override error OCR
         if provinsi_code and len(provinsi_code) == 2:
             votes[provinsi_code[pos]] += 1000
-            
         final_nik.append(votes.most_common(1)[0][0])
 
     # 2. Digit 3-6 (Kode Wilayah Detail)
@@ -205,15 +205,10 @@ def _reconstruct_nik(candidates, dob_digits, provinsi_code):
     for i in range(6):
         pos = 6 + i
         votes = Counter()
-        
-        # Tambah suara dari NIK candidates berdasarkan bobotnya
         for c, w in filtered_candidates:
             votes[c[pos]] += w
-            
-        # Tambah suara dari DOB digits (bobot penyeimbang kuat = 15)
         if dob_digits and len(dob_digits) == 6:
             votes[dob_digits[i]] += 15
-            
         final_nik.append(votes.most_common(1)[0][0])
 
     # 4. Digit 13-16 (Nomor Urut)
@@ -225,46 +220,56 @@ def _reconstruct_nik(candidates, dob_digits, provinsi_code):
 
     return "".join(final_nik)
 
-
 def extract_nik_fast(gray, is_cropped=False):
+    """
+    Ekstraksi NIK super cepat dengan 2-stage execution:
+    Stage 1: Top-crop (area NIK) dengan Scanner Fix, Gentle, & Sharp Adaptive (~0.5s).
+    Stage 2: Fallback ke pipelines lain hanya jika Stage 1 belum menemukan NIK yang valid.
+    """
     h, w = gray.shape[:2]
-    
-    # Analisis Kualitas Gambar
-    quality = _analyze_image_quality(gray)
+    crop_height = int(h * 0.65)
+    top_crop = gray[:crop_height, :]
+    top_quality = _analyze_image_quality(top_crop)
 
+    # Stage 1: Fast Path (Scanner Fix, Gentle, Sharp Adaptive pada Top Crop)
+    fast_tasks = [
+        (nik_pipe_scanner_fix(top_crop, top_quality), r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789', 3),
+        (nik_pipe_gentle(top_crop, top_quality), r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789', 2),
+        (nik_pipe_sharp_adaptive(top_crop, top_quality), r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789', 2),
+    ]
+
+    candidates = []
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {executor.submit(_ocr_worker, img, cfg): weight for img, cfg, weight in fast_tasks}
+        for future in as_completed(futures):
+            weight = futures[future]
+            text = future.result()
+            if text:
+                found = _find_valid_niks(text)
+                for f in found:
+                    candidates.append((f, weight))
+
+    # Fast Exit jika sudah menemukan kandidat NIK 16 digit yang valid
+    if any(_is_plausible_nik(c[0]) for c in candidates):
+        return candidates
+
+    # Stage 2: Deep Fallback (Jika foto sangat gelap / miring / buram)
     digit_configs = [
         r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789',
         r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789',
     ]
 
-    tasks = []
-    
-    # Jalankan pada full cropped image 
-    if is_cropped:
-        for pipe_fn in NIK_PIPELINES:
-            try:
-                processed = pipe_fn(gray, quality)
-                for config in digit_configs:
-                    tasks.append((processed, config, 2))
-            except Exception:
-                continue
-
-    # Jalankan pada top crop area sebagai safety backup 
-    # Gunakan 65% tinggi gambar (memberi baseline context yang baik dan mencakup NIK jika KTP di tengah).
-    crop_height = int(h * 0.65)
-    top_crop = gray[:crop_height, :]
-    top_quality = _analyze_image_quality(top_crop)
+    fallback_tasks = []
     for pipe_fn in NIK_PIPELINES:
         try:
-            processed = pipe_fn(top_crop, top_quality)
-            for config in digit_configs:
-                tasks.append((processed, config, 2))
+            p_img = pipe_fn(top_crop, top_quality)
+            for cfg in digit_configs:
+                fallback_tasks.append((p_img, cfg, 2))
         except Exception:
             continue
 
-    candidates = []
     with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = {executor.submit(_ocr_worker, img, cfg): weight for img, cfg, weight in tasks}
+        futures = {executor.submit(_ocr_worker, img, cfg): weight for img, cfg, weight in fallback_tasks}
         for future in as_completed(futures):
             weight = futures[future]
             text = future.result()
@@ -275,39 +280,31 @@ def extract_nik_fast(gray, is_cropped=False):
 
     return candidates
 
-
 def _extract_provinsi_code(text):
-    """
-    Cari nama provinsi di teks KTP → return 2 digit kode.
-    KTP selalu ada tulisan "PROVINSI JAWA TENGAH" dll di atas.
-    """
+    if not text:
+        return None
     upper = text.upper()
-    # Cari yang paling panjang dulu 
     sorted_names = sorted(PROVINSI_NAME_TO_CODE.keys(), key=len, reverse=True)
     for name in sorted_names:
         if name in upper:
             return PROVINSI_NAME_TO_CODE[name]
             
-    # Fuzzy match fallback untuk menangani typo 
     lines = upper.split('\n')
-    for line in lines[:5]: # Provinsi biasanya ada di 5 baris pertama KTP
-        # Bersihkan karakter aneh yang bukan huruf/spasi
+    for line in lines[:5]:
         cleaned_line = re.sub(r'[^A-Z\s]', '', line).strip()
         if len(cleaned_line) < 4:
             continue
-            
         for name in sorted_names:
             if difflib.SequenceMatcher(None, name, cleaned_line).ratio() > 0.8:
                 return PROVINSI_NAME_TO_CODE[name]
                 
     return None
 
-
 def _extract_dob_digits(text, is_female=False):
-    """Ambil 6 digit DOB (DDMMYY) dari teks KTP untuk cross-validation digit 7-12."""
-    # Terapkan CHAR_FIX terlebih dahulu agar huruf 'O' -> '0', 'S' -> '5' dll sebelum dicocokkan regex
-    fixed_text = "".join(CHAR_FIX.get(c, c) for c in text)
-    m = re.search(r'(\d{2})\s*[-/\.]\s*(\d{2})\s*[-/\.]\s*(\d{2,4})', fixed_text)
+    if not text:
+        return None
+    fixed_text = "".join(CHAR_FIX_DOB.get(c, c) for c in text)
+    m = re.search(r'(\d{2})\s*[-/\.\s]\s*(\d{2})\s*[-/\.\s]\s*(\d{2,4})', fixed_text)
     if not m:
         return None
 
@@ -325,15 +322,14 @@ def _extract_dob_digits(text, is_female=False):
 
     return f"{hari:02d}{bulan}{tahun2}"
 
-
 def _parse_nama(text):
+    if not text:
+        return None
     lines = text.split('\n')
     for i, line in enumerate(lines):
         line_upper = line.strip().upper()
 
-        # Ekstrak NAMA dengan menoleransi spasi di dalam label NAMA (misal: "N A M A")
         match = re.search(r'([NM]\s*[A4R]\s*[MN]\s*[A4R])(?![A-Z])\s*[:;.\-]?\s*(.*)', line_upper)
-        
         if match:
             if re.search(r'TEMPAT|LENGKAP|GADIS|IBU', line_upper):
                 continue
@@ -341,58 +337,64 @@ def _parse_nama(text):
             raw = match.group(2).strip()
             
             def clean_nama_string(raw_str):
-                # Reverse correction (menyelamatkan huruf yang terbaca sebagai angka)
                 fixed_str = raw_str.replace('0', 'O').replace('1', 'I').replace('5', 'S').replace('8', 'B')
-                # Hanya sisakan A-Z, spasi, titik, dan petik
                 cleaned = re.sub(r'[^A-Z\s\'.]', '', fixed_str).strip()
-                # Longgarkan filter, izinkan huruf tunggal (misal singkatan M., B.)
                 words = [w for w in cleaned.split() if len(w) >= 1]
                 if words:
                     return " ".join(words)
                 return None
             
-            # Jika NAMA ada di baris yang sama (setelah titik dua)
             if len(raw) > 3 and not re.search(r'TEMPAT|LENGKAP|LAHIR|BLOOD|GOL|DARAH', raw):
-                return clean_nama_string(raw)
+                parsed = clean_nama_string(raw)
+                if parsed:
+                    return parsed
 
-            # Jika NAMA ada di baris bawahnya
             if i + 1 < len(lines):
                 next_upper = lines[i + 1].strip().upper()
                 if not re.search(r'TEMPAT|LAHIR|KELAMIN|AGAMA|ALAMAT|STATUS|PEKERJAAN|WARGA|NIK|RT|RW|KEWARGANEGARAAN', next_upper):
-                    return clean_nama_string(next_upper)
+                    parsed = clean_nama_string(next_upper)
+                    if parsed:
+                        return parsed
     return None
-
 
 def extract_fulltext(gray):
     """
-    Full-text OCR → hasilnya untuk 3 hal sekaligus:
-    1. Nama provinsi → fix digit 1-2 NIK
-    2. Tanggal lahir → fix digit 7-12 NIK
-    3. Nama lengkap
+    Full-text OCR dengan 2-stage execution:
+    Stage 1: Standard Text pipeline with PSM 6 (~0.35s).
+    Stage 2: Fallback ke CLAHE, Scanner Fix, Morph jika Nama atau teks belum lengkap.
     """
-    # Analisis Kualitas Gambar
     quality = _analyze_image_quality(gray)
 
-    configs = [r'--oem 3 --psm 6', r'--oem 3 --psm 4']
+    # Stage 1: Fast path
+    p_std = text_pipe_standard(gray, quality)
+    raw_std = _ocr_worker(p_std, r'--oem 3 --psm 6')
 
+    nama = _parse_nama(raw_std)
+    dob = _extract_dob_digits(raw_std)
+    prov = _extract_provinsi_code(raw_std)
+
+    if nama and nama != "Tidak terdeteksi" and (dob or prov):
+        return nama, dob, prov, raw_std
+
+    # Stage 2: Deep Fallback
+    configs = [r'--oem 3 --psm 6']
     tasks = []
     for pipe_fn in TEXT_PIPELINES:
         try:
             processed = pipe_fn(gray, quality)
-            for config in configs:
-                tasks.append((processed, config))
+            for cfg in configs:
+                tasks.append((processed, cfg))
         except Exception:
             continue
 
-    results = []
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    results = [raw_std] if raw_std else []
+    with ThreadPoolExecutor(max_workers=3) as executor:
         futures = [executor.submit(_ocr_worker, img, cfg) for img, cfg in tasks]
         for future in futures:
             text = future.result()
             if text and text.strip():
                 results.append(text)
 
-    # Deteksi gender (Perempuan) di seluruh teks OCR untuk cross-validation
     is_female = False
     for text in results:
         upper = text.upper()
@@ -400,28 +402,27 @@ def extract_fulltext(gray):
             is_female = True
             break
 
-    best_dob = None
-    best_provinsi = None
-    best_text = ""
-    nama_candidates = []
+    nama_candidates = [nama] if (nama and nama != "Tidak terdeteksi") else []
+    best_dob = dob
+    best_provinsi = prov
+    best_text = raw_std
 
     for text in results:
-        nama = _parse_nama(text)
-        if nama:
-            nama_candidates.append(nama)
+        n = _parse_nama(text)
+        if n:
+            nama_candidates.append(n)
             if not best_text:
                 best_text = text
                 
         if not best_dob:
-            dob = _extract_dob_digits(text, is_female=is_female)
-            if dob:
-                best_dob = dob
+            d = _extract_dob_digits(text, is_female=is_female)
+            if d:
+                best_dob = d
         if not best_provinsi:
-            prov = _extract_provinsi_code(text)
-            if prov:
-                best_provinsi = prov
+            p = _extract_provinsi_code(text)
+            if p:
+                best_provinsi = p
 
-    # Consensus Voting untuk NAMA
     if nama_candidates:
         votes = Counter(nama_candidates)
         best_nama = votes.most_common(1)[0][0]
@@ -429,4 +430,3 @@ def extract_fulltext(gray):
         best_nama = "Tidak terdeteksi"
 
     return best_nama, best_dob, best_provinsi, best_text
-

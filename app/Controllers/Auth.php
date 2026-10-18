@@ -24,9 +24,10 @@ class Auth extends BaseController
         $state = bin2hex(random_bytes(16));
         session()->set('sso_state', $state);
 
-        $ssoBaseUrl  = env('sso.baseUrl');
-        $clientId    = env('sso.clientId');
-        $redirectUri = env('sso.redirectUri');
+        $isDocker = isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
+        $ssoBaseUrl  = env('sso.baseUrl') ?: ($isDocker ? 'http://sso.localhost' : 'http://sso-engine.test');
+        $clientId    = env('sso.clientId', 'mymember-app');
+        $redirectUri = env('sso.redirectUri') ?: ($isDocker ? 'http://mymember.localhost/auth/callback' : 'http://mymember.test/auth/callback');
 
         $authorizeUrl = rtrim($ssoBaseUrl, '/') . '/authorize?' . http_build_query([
             'client_id'    => $clientId,
@@ -59,8 +60,8 @@ class Auth extends BaseController
         // Panggil SSO logout (best-effort, abaikan error)
         if (!empty($refreshToken)) {
             try {
-                $ssoBaseUrl = env('sso.baseUrl');
-                $url = rtrim($ssoBaseUrl, '/') . '/logout';
+                $ssoInternalUrl = env('sso.internalUrl') ?: env('sso.baseUrl', 'http://sso-engine.test');
+                $url = rtrim($ssoInternalUrl, '/') . '/logout';
 
                 $client = \Config\Services::curlrequest();
                 $client->post($url, [

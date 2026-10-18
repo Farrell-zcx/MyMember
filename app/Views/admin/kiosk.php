@@ -99,8 +99,8 @@ $(document).ready(function() {
         $('#feed-status').addClass('hidden');
         $('#kiosk-live-feed').removeClass('hidden');
         if (isStreaming) {
-            // Target ~15 FPS
-            setTimeout(fetchNextFrame, 66);
+            // Target ~25 FPS mulus
+            setTimeout(fetchNextFrame, 40);
         }
     };
 
