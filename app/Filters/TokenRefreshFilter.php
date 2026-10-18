@@ -13,7 +13,7 @@ use Exception;
 /**
  * TokenRefreshFilter
  *
- * Filter yang berjalan setelah SsoAuthFilter (hanya jika sudah logged_in).
+ * Filter yang berjalan setelah SsoAuthFilter (jika sudah logged_in).
  * Mengecek apakah access token hampir expired, dan jika ya,
  * melakukan silent refresh menggunakan refresh token.
  */
@@ -82,8 +82,8 @@ class TokenRefreshFilter implements FilterInterface
     /**
      * Panggil SSO Engine POST /refresh-token
      *
-     * @param string $refreshToken
-     * @return array ['access_token' => '...', 'refresh_token' => '...']
+     * @param string
+     * @return array
      * @throws Exception
      */
     private function doRefresh(string $refreshToken): array

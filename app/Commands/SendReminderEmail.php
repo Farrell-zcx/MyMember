@@ -58,17 +58,17 @@ class SendReminderEmail extends BaseCommand
     {
         // Target H+2 dari hari ini (artinya mereka yang akan expired 2 hari lagi)
         $targetDate = date('Y-m-d', strtotime('+2 days'));
-        
+
         $db = \Config\Database::connect();
         $builder = $db->table('members');
-        
+
         // Cari member yg H-2 dan email belum dikirim
         $members = $builder->where('tgl_expired_member', $targetDate)
-                           ->where('reminder_terkirim', 0)
-                           ->where('email !=', '') // Pastikan punya email
-                           ->where('email IS NOT NULL')
-                           ->get()
-                           ->getResult();
+            ->where('reminder_terkirim', 0)
+            ->where('email !=', '') // Pastikan punya email
+            ->where('email IS NOT NULL')
+            ->get()
+            ->getResult();
 
         if (empty($members)) {
             CLI::write('Tidak ada member yang H-2 atau semua email sudah terkirim.', 'yellow');
@@ -82,7 +82,19 @@ class SendReminderEmail extends BaseCommand
         foreach ($members as $member) {
             $nama = esc($member->nama_lengkap);
             $tglExpired = date('d F Y', strtotime($member->tgl_expired_member));
-            
+
+            // Bersihkan konfigurasi & attachment sebelumnya
+            $emailService->clear(true);
+
+            // Lampirkan logo secara inline (CID) agar muncul di Gmail / email client tanpa butuh akses localhost
+            $logoPath = FCPATH . 'images/logo.png';
+            $logoTag  = '';
+            if (is_file($logoPath)) {
+                $emailService->attach($logoPath, 'inline', 'logo.png');
+                $logoCid = $emailService->setAttachmentCID('logo.png');
+                $logoTag = "<img src='cid:{$logoCid}' alt='Logo' style='height: 35px; vertical-align: middle; margin-right: 8px;'>";
+            }
+
             // Template Email HTML
             $message = "
             <!DOCTYPE html>
@@ -92,7 +104,7 @@ class SendReminderEmail extends BaseCommand
                 <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>
                     <div style='text-align: center; border-bottom: 2px solid #0056b3; padding-bottom: 15px; margin-bottom: 20px;'>
                         <div style='margin-bottom: 5px;'>
-                            <img src='" . base_url('images/logo.png') . "' alt='Logo' style='height: 35px; vertical-align: middle; margin-right: 8px;'>
+                            {$logoTag}
                             <h1 style='margin: 0; font-size: 28px; color: #333333; display: inline-block; vertical-align: middle;'><span style='color: #0056b3;'>My</span>Member</h1>
                         </div>
                         <p style='color: #666; margin: 0; font-size: 12px;'>Membership Management System</p>
@@ -116,16 +128,20 @@ class SendReminderEmail extends BaseCommand
             </body>
             </html>";
 
-            $emailService->clear(); // Bersihkan konfigurasi sebelumnya jika ada
+            $fromEmail = config('Email')->fromEmail ?: (getenv('MYMEMBER_EMAIL_FROM') ?: getenv('SMTP_USER'));
+            $fromName  = config('Email')->fromName ?: 'MyMember Official';
+            $emailService->setFrom($fromEmail, $fromName);
+
             $emailService->setTo($member->email);
             $emailService->setSubject('Pemberitahuan Kadaluarsa Membership (H-2)');
             $emailService->setMessage($message);
 
+
             // Jika email sukses terkirim, update status
             if ($emailService->send()) {
                 $db->table('members')
-                   ->where('NIK', $member->NIK)
-                   ->update(['reminder_terkirim' => 1]);
+                    ->where('NIK', $member->NIK)
+                    ->update(['reminder_terkirim' => 1]);
                 $countSent++;
                 CLI::write("Berhasil mengirim email ke: {$member->email}", 'green');
             } else {
@@ -133,7 +149,9 @@ class SendReminderEmail extends BaseCommand
                 log_message('error', 'Gagal mengirim email reminder ke: ' . $member->email);
                 CLI::write("Gagal mengirim email ke: {$member->email}", 'red');
             }
+            sleep(2); // Beri jeda 2 detik agar tidak terkena rate limit Mailtrap (maks 1 email/detik)
         }
+
 
         CLI::newLine();
         CLI::write("==============================", 'cyan');
