@@ -153,7 +153,7 @@
                                         <th class="py-3 px-4 rounded-r-lg text-center">Aksi</th>
                                     </tr>
                                 </thead>
-                                <tbody class="text-xs text-on-surface divide-y divide-surface-container">
+                                <tbody id="membersTableBody" class="text-xs text-on-surface divide-y divide-surface-container">
                                     <?php if (empty($members)): ?>
                                         <tr>
                                             <td colspan="4" class="py-12 text-center text-outline italic">
@@ -361,5 +361,59 @@
                 // silent fail on polling error
             }
         }, 2000); // poll every 2 seconds
+
+        // Live polling to sync members table when check-ins or updates occur
+        let lastMemberTypeHash = '';
+        setInterval(async () => {
+            try {
+                const res = await fetch('/admin/member-type/live?t=' + new Date().getTime());
+                if (res.status !== 200) return;
+                const result = await res.json();
+                if (result.status === 'sukses' && result.data) {
+                    const currentHash = JSON.stringify(result.data.map(m => m.NIK + ':' + m.sisa_kuota + ':' + m.id_type + ':' + m.updated_at));
+                    if (currentHash === lastMemberTypeHash) return;
+                    lastMemberTypeHash = currentHash;
+
+                    const tbody = document.getElementById('membersTableBody');
+                    if (!tbody) return;
+
+                    if (result.data.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="py-12 text-center text-outline italic">
+                                    Belum ada data member di database. Silakan klik "Scan KTP" untuk mengisi form otomatis!
+                                </td>
+                            </tr>
+                        `;
+                    } else {
+                        let html = '';
+                        result.data.forEach(m => {
+                            const safeNik = (m.NIK || '').toString().replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                            const safeNama = (m.nama_lengkap || '').toString().replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                            const safeHp = (m.nomor_hp || '-').toString().replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                            const safeEmail = (m.email || '-').toString().replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                            const exp = m.tgl_expired_member ? m.tgl_expired_member : 'No Limit';
+
+                            html += `
+                                <tr class="glass-table-row">
+                                    <td class="py-3.5 px-4 font-mono font-bold text-on-surface">${safeNik}</td>
+                                    <td class="py-3.5 px-4 font-semibold">${safeNama}</td>
+                                    <td class="py-3.5 px-4 leading-relaxed">
+                                        HP: ${safeHp}<br>
+                                        Email: ${safeEmail}<br>
+                                        <span class="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-sm">Exp: ${exp}</span>
+                                    </td>
+                                    <td class="py-3.5 px-4 text-center space-x-1 whitespace-nowrap">
+                                        <a href="/admin/member-type?edit=${safeNik}" class="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2.5 py-1.5 rounded-md transition-all">Edit</a>
+                                        <button onclick="hapusMember('${safeNik}')" class="bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold px-2.5 py-1.5 rounded-md transition-all">Hapus</button>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        tbody.innerHTML = html;
+                    }
+                }
+            } catch (e) {}
+        }, 2500);
     </script>
 <?= $this->endSection() ?>

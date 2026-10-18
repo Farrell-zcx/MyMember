@@ -14,8 +14,8 @@ class Dashboard extends Controller
 
         $db = \Config\Database::connect();
 
-        // Total member aktif 
-        $total_members = $db->table('members')->countAllResults();
+        // Total member aktif (hanya yang tidak dihapus)
+        $total_members = $db->table('members')->where('is_deleted', 0)->countAllResults();
 
         // Total pengunjung hari ini
         // DATE(waktu_kunjungan) = CURDATE()
@@ -49,7 +49,7 @@ class Dashboard extends Controller
 
         $db = \Config\Database::connect();
 
-        $total_members = $db->table('members')->countAllResults();
+        $total_members = $db->table('members')->where('is_deleted', 0)->countAllResults();
 
         $total_kunjungan_hari_ini = $db->table('log_kunjungan')
             ->where('DATE(waktu_kunjungan)', date('Y-m-d'))

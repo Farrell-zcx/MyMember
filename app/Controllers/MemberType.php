@@ -228,4 +228,19 @@ class MemberType extends Controller
 
         return $this->response->setJSON(['status' => 'waiting']);
     }
+
+    public function getLiveMembers()
+    {
+        if (!session()->get('logged_in')) {
+            return $this->response->setStatusCode(401)->setJSON(['error' => 'Unauthorized']);
+        }
+
+        $memberModel = new MemberModel();
+        $members = $memberModel->where('is_deleted', 0)->orderBy('created_at', 'DESC')->findAll();
+
+        return $this->response->setJSON([
+            'status' => 'sukses',
+            'data'   => $members
+        ]);
+    }
 }

@@ -21,6 +21,7 @@ $routes->get('admin/dashboard/live', 'Dashboard::getLiveStats');
 
 // Route untuk Daftar Member (Read Only)
 $routes->get('admin/member', 'Member::index');
+$routes->get('admin/member/live', 'Member::getLiveMembers');
 
 // Route Kelola Pengguna
 $routes->get('admin/users', 'AdminUserController::index');
@@ -40,6 +41,7 @@ $routes->get('admin/session-fix', function () {
 $routes->group('admin/member-type', function ($routes) {
     // Jalur GET untuk nampilin halaman
     $routes->get('/', 'MemberType::index');
+    $routes->get('live', 'MemberType::getLiveMembers');
 
     // Mengizinkan data POST masuk ke halaman index 
     $routes->post('/', 'MemberType::index');
