@@ -86,14 +86,9 @@ class SendReminderEmail extends BaseCommand
             // Bersihkan konfigurasi & attachment sebelumnya
             $emailService->clear(true);
 
-            // Lampirkan logo secara inline (CID) agar muncul di Gmail / email client tanpa butuh akses localhost
-            $logoPath = FCPATH . 'images/logo.png';
-            $logoTag  = '';
-            if (is_file($logoPath)) {
-                $emailService->attach($logoPath, 'inline', 'logo.png');
-                $logoCid = $emailService->setAttachmentCID('logo.png');
-                $logoTag = "<img src='cid:{$logoCid}' alt='Logo' style='height: 35px; vertical-align: middle; margin-right: 8px;'>";
-            }
+            // Gunakan URL gambar publik resmi agar logo muncul di header tanpa menjadi attachment download di bawah
+            $logoUrl = 'https://mymember.tech/images/logo.png';
+            $logoTag = "<img src='{$logoUrl}' alt='Logo' style='height: 38px; vertical-align: middle; margin-right: 8px;'>";
 
             // Template Email HTML
             $message = "
@@ -128,6 +123,8 @@ class SendReminderEmail extends BaseCommand
             </body>
             </html>";
 
+            $altMessage = "Halo, {$nama}!\n\nKami ingin menginformasikan bahwa masa aktif keanggotaan MyMember Anda akan segera berakhir dalam 2 hari lagi.\nTanggal Kadaluarsa: {$tglExpired}\n\nAgar dapat terus menggunakan fasilitas tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.\n\nHubungi admin di tempat untuk informasi perpanjangan paket.\n\nSalam,\nMyMember Official";
+
             $fromEmail = config('Email')->fromEmail ?: (getenv('MYMEMBER_EMAIL_FROM') ?: getenv('SMTP_USER'));
             $fromName  = config('Email')->fromName ?: 'MyMember Official';
             $emailService->setFrom($fromEmail, $fromName);
@@ -135,6 +132,7 @@ class SendReminderEmail extends BaseCommand
             $emailService->setTo($member->email);
             $emailService->setSubject('Pemberitahuan Kadaluarsa Membership (H-2)');
             $emailService->setMessage($message);
+            $emailService->setAltMessage($altMessage);
 
 
             // Jika email sukses terkirim, update status
