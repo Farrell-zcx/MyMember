@@ -1,6 +1,52 @@
 import cv2
 import numpy as np
 
+def normalize_ktp_image(img, max_width=1280, max_height=900):
+    """
+    Auto-Downscale Cerdas di Awal:
+    - Jika resolusi gambar raksasa (misal foto HP 4000x3000 atau 3000x2000), 
+      resize secara proporsional ke batas ideal dokumen KTP (lebar maks 1280px).
+    - Jika resolusi sudah pas (800-1280px), BIARKAN ASLI (tidak di-resize sama sekali).
+    - Menghilangkan beban komputasi jutaan piksel berlebih di VPS.
+    """
+    if img is None:
+        return None
+    h, w = img.shape[:2]
+    if w <= 0 or h <= 0:
+        return img
+    
+    if w > max_width or h > max_height:
+        scale = min(max_width / float(w), max_height / float(h))
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        return cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    
+    return img
+
+def get_adaptive_ktp_gray(bgr_img):
+    """
+    Hybrid Adaptive Preprocessing:
+    - Mempertahankan keunggulan Blue Channel (memutihkan background biru KTP Indonesia).
+    - Adaptif dengan Grayscale + CLAHE jika pencahayaan ruangan kuning (warm light) / remang-remang.
+    """
+    if bgr_img is None:
+        return None
+    b, g, r = cv2.split(bgr_img)
+    std_gray = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2GRAY)
+    
+    mean_b = float(np.mean(b))
+    mean_r = float(np.mean(r))
+    
+    # Jika kanal biru lebih dominan dari merah (ciri khas KTP biru dengan pencahayaan cukup),
+    # satukan keunggulan keduanya: 70% Blue Channel (background putih bersih) + 30% Grayscale (detail huruf stabil).
+    if mean_b >= mean_r:
+        return cv2.addWeighted(b, 0.70, std_gray, 0.30, 0)
+    else:
+        # Jika pencahayaan lampu kuning / ruangan redup (R > B),
+        # perkuat kontras lokal huruf menggunakan CLAHE
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        return clahe.apply(std_gray)
+
 def _analyze_image_quality(gray):
     mean_brightness = cv2.mean(gray)[0]
     laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
@@ -13,12 +59,14 @@ def _analyze_image_quality(gray):
         'blur_var': laplacian_var
     }
 
-def _get_optimal_scale(gray, target_h=950.0):
+def _get_optimal_scale(gray, target_h=900.0):
     h = gray.shape[0]
     if h <= 0:
         return 1.0
+    if h >= 800:
+        return 1.0
     scale = target_h / float(h)
-    return min(2.0, max(1.0, scale))
+    return min(1.8, max(1.0, scale))
 
 def _upscale(gray, scale=None):
     if scale is None:

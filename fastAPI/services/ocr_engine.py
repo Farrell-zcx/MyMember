@@ -109,8 +109,14 @@ def _is_plausible_nik(nik):
     return True
 
 # OCR WORKER
-def _ocr_worker(processed_img, config):
+def _ocr_worker(processed_img, config, lang=None):
     try:
+        if lang:
+            try:
+                return pytesseract.image_to_string(processed_img, config=config, lang=lang)
+            except Exception:
+                # Fallback ke default bahasa jika paket lokal belum terpasang
+                return pytesseract.image_to_string(processed_img, config=config)
         return pytesseract.image_to_string(processed_img, config=config)
     except Exception:
         return ""
@@ -239,7 +245,7 @@ def extract_nik_fast(gray, is_cropped=False):
     ]
 
     candidates = []
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    with ThreadPoolExecutor(max_workers=2) as executor:
         futures = {executor.submit(_ocr_worker, img, cfg): weight for img, cfg, weight in fast_tasks}
         for future in as_completed(futures):
             weight = futures[future]
@@ -268,7 +274,7 @@ def extract_nik_fast(gray, is_cropped=False):
         except Exception:
             continue
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=2) as executor:
         futures = {executor.submit(_ocr_worker, img, cfg): weight for img, cfg, weight in fallback_tasks}
         for future in as_completed(futures):
             weight = futures[future]
@@ -367,7 +373,7 @@ def extract_fulltext(gray):
 
     # Stage 1: Fast path
     p_std = text_pipe_standard(gray, quality)
-    raw_std = _ocr_worker(p_std, r'--oem 3 --psm 6')
+    raw_std = _ocr_worker(p_std, r'--oem 3 --psm 6', lang='ind+eng')
 
     nama = _parse_nama(raw_std)
     dob = _extract_dob_digits(raw_std)
@@ -388,8 +394,8 @@ def extract_fulltext(gray):
             continue
 
     results = [raw_std] if raw_std else []
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [executor.submit(_ocr_worker, img, cfg) for img, cfg in tasks]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(_ocr_worker, img, cfg, 'ind+eng') for img, cfg in tasks]
         for future in futures:
             text = future.result()
             if text and text.strip():
