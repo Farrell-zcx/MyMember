@@ -812,6 +812,9 @@
             document.getElementById('nikInput').value = scannedNik;
             document.getElementById('namaInput').value = scannedNama;
 
+            // Segera kirim cache scan ke panel admin agar realtime terisi
+            triggerCacheUpdate();
+
             document.getElementById('phoneConfirmWrapper').classList.add('hidden');
             document.getElementById('emailConfirmWrapper').classList.add('hidden');
             document.getElementById('typeConfirmWrapper').classList.add('hidden');
@@ -965,11 +968,20 @@
                     document.getElementById('resultUnregistered').classList.remove('hidden');
                     document.getElementById('btnKembaliResult').classList.add('hidden'); // Sembunyikan tombol kembali saat menunggu admin
 
+                    // Pastikan cache admin ter-update dengan NIK dan nama yang sedang menunggu
+                    triggerCacheUpdate();
+
+                    if (pollInterval) {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                    }
+
                     // Tunggu admin/resepsionis selesai registrasi member
                     pollInterval = setInterval(async () => {
                         try {
-                            const getMemberUrl = document.getElementById('formKtp').dataset.getMemberUrl;
-                            const res = await fetch(`${getMemberUrl}?nik=${finalNik}`);
+                            const rawUrl = document.getElementById('formKtp').dataset.getMemberUrl || '/ocr/get-member';
+                            const getMemberUrl = fixUrl(rawUrl);
+                            const res = await fetch(`${getMemberUrl}?nik=${encodeURIComponent(finalNik)}`);
                             if (res.status === 200) {
                                 const memberRes = await res.json();
                                 if (memberRes.status === 'sukses' && memberRes.exists) {
@@ -989,7 +1001,9 @@
                                     document.getElementById('resultSuccess').classList.remove('hidden');
                                 }
                             }
-                        } catch (err) {}
+                        } catch (err) {
+                            console.error("Polling error waiting for admin:", err);
+                        }
                     }, 2000); // Polling setiap 2 detik
 
                 } else if (result.status === 'limit') {

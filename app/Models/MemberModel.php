@@ -34,16 +34,17 @@ class MemberModel extends Model
         $masterType = $db->table('master_type_member')->where('id_type', $data_simpan['id_type'])->get()->getRow();
         
         $kuota_master = $masterType && isset($masterType->kuota_kunjungan) ? (int)$masterType->kuota_kunjungan : 0;
-        $masa_aktif_hari = $masterType && isset($masterType->masa_aktif_hari) ? (int)$masterType->masa_aktif_hari : 0;
+        $masa_aktif_hari = $masterType && isset($masterType->masa_aktif_hari) ? (int)$masterType->masa_aktif_hari : 30;
         
-        // Jika input tanggal kedaluwarsa kosong, set otomatis berdasarkan master (dihitung dari tanggal hari ini)
-        if (empty($data_simpan['tgl_expired_member']) && $masa_aktif_hari > 0) {
-            $data_simpan['tgl_expired_member'] = date('Y-m-d', strtotime("+$masa_aktif_hari days"));
+        // Jika input tanggal kedaluwarsa kosong, set otomatis berdasarkan master (default 30 hari)
+        if (empty($data_simpan['tgl_expired_member'])) {
+            $days = $masa_aktif_hari > 0 ? $masa_aktif_hari : 30;
+            $data_simpan['tgl_expired_member'] = date('Y-m-d', strtotime("+$days days"));
         }
         
         // Jika input sisa_kuota kosong/0, gunakan kuota dari master
         if (empty($data_simpan['sisa_kuota']) || $data_simpan['sisa_kuota'] == 0) {
-            $kuota_awal = $kuota_master;
+            $kuota_awal = $kuota_master > 0 ? $kuota_master : 50;
         } else {
             $kuota_awal = (int)$data_simpan['sisa_kuota'];
         }
@@ -51,11 +52,18 @@ class MemberModel extends Model
         // Potong 1 kuota untuk check-in pertama
         $kuota_akhir = $kuota_awal > 0 ? $kuota_awal - 1 : 0;
         $data_simpan['sisa_kuota'] = $kuota_akhir;
+        $data_simpan['is_deleted'] = 0;
+        $data_simpan['reminder_terkirim'] = 0;
 
         $db->transStart();
         
-        // Insert ke tabel members
-        $this->insert($data_simpan);
+        // Cek apakah NIK sudah pernah terdaftar (termasuk yang soft delete)
+        $existing = $this->where('NIK', $data_simpan['NIK'])->first();
+        if ($existing) {
+            $this->where('NIK', $data_simpan['NIK'])->set($data_simpan)->update();
+        } else {
+            $this->insert($data_simpan);
+        }
         
         // Insert ke log_kunjungan sebagai check-in perdana
         $db->table('log_kunjungan')->insert([
