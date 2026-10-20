@@ -88,9 +88,9 @@ class SsoPublicKey
      */
     private function fetchFromSso(): string
     {
-        $ssoBaseUrl = env('sso.internalUrl') ?: env('sso.baseUrl');
+        $ssoBaseUrl = getenv('SSO_INTERNAL_URL') ?: env('sso.internalUrl') ?: getenv('SSO_BASE_URL') ?: env('sso.baseUrl', 'http://sso-engine');
         if (empty($ssoBaseUrl)) {
-            throw new Exception('sso.baseUrl belum dikonfigurasi di .env');
+            throw new Exception('sso.baseUrl belum dikonfigurasi');
         }
 
         $url = rtrim($ssoBaseUrl, '/') . '/public-key';
