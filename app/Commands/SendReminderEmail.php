@@ -125,12 +125,14 @@ class SendReminderEmail extends BaseCommand
 
             $altMessage = "Halo, {$nama}!\n\nKami ingin menginformasikan bahwa masa aktif keanggotaan MyMember Anda akan segera berakhir dalam 2 hari lagi.\nTanggal Kadaluarsa: {$tglExpired}\n\nAgar dapat terus menggunakan fasilitas tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.\n\nHubungi admin di tempat untuk informasi perpanjangan paket.\n\nSalam,\nMyMember Official";
 
-            $fromEmail = config('Email')->fromEmail ?: (getenv('MYMEMBER_EMAIL_FROM') ?: getenv('SMTP_USER'));
-            $fromName  = 'Farrel Labib - MyMember';
+            // Gunakan SMTP_USER (alamat akun Gmail SMTP yang terautentikasi) agar SPF & DKIM 100% PASS dan masuk INBOX
+            $smtpUser = config('Email')->SMTPUser ?: (getenv('SMTP_USER') ?: '');
+            $fromEmail = !empty($smtpUser) ? $smtpUser : (config('Email')->fromEmail ?: 'noreply@mymember.tech');
+            $fromName  = config('Email')->fromName ?: 'MyMember Official';
             $emailService->setFrom($fromEmail, $fromName);
 
             $emailService->setTo($member->email);
-            $emailService->setSubject('[MyMember] Pengingat Masa Aktif Membership (H-2)');
+            $emailService->setSubject('Pengingat Masa Aktif Membership MyMember (H-2)');
             $emailService->setMessage($message);
             $emailService->setAltMessage($altMessage);
 
