@@ -24,15 +24,13 @@ class Auth extends BaseController
         $state = bin2hex(random_bytes(16));
         session()->set('sso_state', $state);
 
-        $isLocalhost  = isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
-        $isProduction = isset($_SERVER['HTTP_HOST']) && (strpos($_SERVER['HTTP_HOST'], 'mymember.tech') !== false || strpos($_SERVER['HTTP_HOST'], 'sslip.io') !== false);
+        $isLocalhost  = isset($_SERVER['HTTP_HOST']) && (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '.test') !== false);
+        $defaultSsoBase  = $isLocalhost ? (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false ? 'http://sso.localhost' : 'http://sso-engine.test') : 'https://sso.31.97.48.33.sslip.io';
+        $defaultRedirect = $isLocalhost ? (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false ? 'http://mymember.localhost/auth/callback' : 'http://mymember.test/auth/callback') : 'https://mymember.tech/auth/callback';
 
-        $defaultSsoBase  = $isProduction ? 'https://sso.31.97.48.33.sslip.io' : ($isLocalhost ? 'http://sso.localhost' : 'http://sso-engine.test');
-        $defaultRedirect = $isProduction ? 'https://mymember.tech/auth/callback' : ($isLocalhost ? 'http://mymember.localhost/auth/callback' : 'http://mymember.test/auth/callback');
-
-        $ssoBaseUrl  = getenv('SSO_BASE_URL') ?: ($isProduction ? $defaultSsoBase : env('sso.baseUrl')) ?: $defaultSsoBase;
+        $ssoBaseUrl  = getenv('SSO_BASE_URL') ?: (!$isLocalhost ? $defaultSsoBase : env('sso.baseUrl')) ?: $defaultSsoBase;
         $clientId    = getenv('SSO_CLIENT_ID') ?: env('sso.clientId', 'mymember-app');
-        $redirectUri = getenv('SSO_REDIRECT_URI') ?: ($isProduction ? $defaultRedirect : env('sso.redirectUri')) ?: $defaultRedirect;
+        $redirectUri = getenv('SSO_REDIRECT_URI') ?: (!$isLocalhost ? $defaultRedirect : env('sso.redirectUri')) ?: $defaultRedirect;
 
         if ($isProduction || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
             $ssoBaseUrl  = str_replace('http://sso.', 'https://sso.', $ssoBaseUrl);
