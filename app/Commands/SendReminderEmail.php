@@ -86,56 +86,96 @@ class SendReminderEmail extends BaseCommand
             // Bersihkan konfigurasi & attachment sebelumnya
             $emailService->clear(true);
 
-            // Gunakan URL gambar publik resmi agar logo muncul di header tanpa menjadi attachment download di bawah
-            $logoUrl = 'https://mymember.tech/images/logo.png';
-            $logoTag = '<img src="' . $logoUrl . '" alt="MyMember Logo" width="40" height="40" style="height: 40px; width: auto; vertical-align: middle; margin-right: 8px; border: 0;">';
-
-            // Template Email HTML
+            // Template Email HTML (Table-based layout profesional, anti-spam, 100% responsif)
             $message = "
             <!DOCTYPE html>
             <html>
-            <head><meta charset='UTF-8'></head>
-            <body style='font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px;'>
-                <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>
-                    <div style='text-align: center; border-bottom: 2px solid #0056b3; padding-bottom: 15px; margin-bottom: 20px;'>
-                        <div style='margin-bottom: 5px;'>
-                            {$logoTag}
-                            <h1 style='margin: 0; font-size: 28px; color: #333333; display: inline-block; vertical-align: middle;'><span style='color: #0056b3;'>My</span>Member</h1>
-                        </div>
-                        <p style='color: #666; margin: 0; font-size: 12px;'>Membership Management System</p>
-                    </div>
-                    <h2 style='color: #333333;'>Halo, {$nama}!</h2>
-                    <p style='color: #555555; line-height: 1.6;'>
-                        Kami ingin menginformasikan bahwa masa aktif keanggotaan <strong>MyMember</strong> Anda akan segera berakhir dalam <strong>2 hari lagi</strong>.
-                    </p>
-                    <div style='background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; border-radius: 4px;'>
-                        <p style='margin: 0; color: #721c24;'>
-                            <strong>Tanggal Kadaluarsa:</strong> {$tglExpired}
-                        </p>
-                    </div>
-                    <p style='color: #555555; line-height: 1.6;'>
-                        Agar dapat terus menggunakan fasilitas tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.
-                    </p>
-                    <div style='text-align: center; margin-top: 30px;'>
-                        <p style='font-size: 13px; color: #888888;'>Hubungi admin di tempat untuk informasi perpanjangan paket.</p>
-                    </div>
-                </div>
+            <head>
+                <meta charset='UTF-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+                <title>Pengingat Masa Aktif Membership MyMember</title>
+            </head>
+            <body style='margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f9;'>
+                <table border='0' cellpadding='0' cellspacing='0' width='100%' style='background-color: #f4f6f9; padding: 30px 10px;'>
+                    <tr>
+                        <td align='center'>
+                            <table border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); overflow: hidden; border: 1px solid #e5e7eb;'>
+                                <!-- Brand Header (CSS Table Badge - 0% risiko broken image & 100% lolos filter spam) -->
+                                <tr>
+                                    <td align='center' style='background-color: #0056b3; padding: 25px 20px;'>
+                                        <table border='0' cellpadding='0' cellspacing='0'>
+                                            <tr>
+                                                <td style='vertical-align: middle; padding-right: 12px;'>
+                                                    <div style='background-color: #ffffff; color: #0056b3; font-family: Arial, sans-serif; font-weight: 900; font-size: 22px; width: 44px; height: 44px; line-height: 44px; text-align: center; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);'>M</div>
+                                                </td>
+                                                <td style='vertical-align: middle;'>
+                                                    <div style='color: #ffffff; font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; letter-spacing: 0.5px; line-height: 1.2;'>MyMember</div>
+                                                    <div style='color: #cce0ff; font-family: Arial, sans-serif; font-size: 12px; margin-top: 2px;'>Membership Management System</div>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <!-- Content Body -->
+                                <tr>
+                                    <td style='padding: 35px 30px; color: #333333;'>
+                                        <h2 style='margin-top: 0; margin-bottom: 18px; color: #111827; font-size: 20px; font-weight: 600;'>Halo, {$nama}!</h2>
+                                        <p style='color: #4b5563; line-height: 1.6; font-size: 15px; margin-top: 0; margin-bottom: 20px;'>
+                                            Kami ingin menginformasikan bahwa masa aktif keanggotaan <strong>MyMember</strong> Anda akan segera berakhir dalam <strong>2 hari lagi</strong>.
+                                        </p>
+                                        
+                                        <!-- Expiration Alert Box -->
+                                        <div style='background-color: #fff8e1; border-left: 4px solid #f59e0b; padding: 16px 20px; margin: 25px 0; border-radius: 6px;'>
+                                            <table border='0' cellpadding='0' cellspacing='0' width='100%'>
+                                                <tr>
+                                                    <td>
+                                                        <p style='margin: 0; color: #b45309; font-size: 15px; font-weight: 600;'>
+                                                            Tanggal Kadaluarsa: {$tglExpired}
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </div>
+
+                                        <p style='color: #4b5563; line-height: 1.6; font-size: 15px; margin-bottom: 25px;'>
+                                            Agar dapat terus menikmati fasilitas layanan tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.
+                                        </p>
+
+                                        <div style='background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px 20px; text-align: center; margin-top: 20px;'>
+                                            <p style='font-size: 13px; color: #6b7280; margin: 0; line-height: 1.5;'>
+                                                Hubungi admin di lokasi untuk informasi perpanjangan paket keanggotaan Anda.
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Footer -->
+                                <tr>
+                                    <td align='center' style='background-color: #f9fafb; padding: 18px 20px; border-top: 1px solid #e5e7eb;'>
+                                        <p style='font-size: 12px; color: #9ca3af; margin: 0;'>
+                                            &copy; " . date('Y') . " MyMember Official. All rights reserved.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
             </body>
             </html>";
 
             $altMessage = "Halo, {$nama}!\n\nKami ingin menginformasikan bahwa masa aktif keanggotaan MyMember Anda akan segera berakhir dalam 2 hari lagi.\nTanggal Kadaluarsa: {$tglExpired}\n\nAgar dapat terus menggunakan fasilitas tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.\n\nHubungi admin di tempat untuk informasi perpanjangan paket.\n\nSalam,\nMyMember Official";
 
-            // Gunakan SMTP_USER (alamat akun Gmail SMTP yang terautentikasi) agar SPF & DKIM 100% PASS dan masuk INBOX
+            // Wajib gunakan SMTP_USER (email terautentikasi) agar lolos SPF & DKIM Google 100% dan masuk INBOX
             $smtpUser = config('Email')->SMTPUser ?: (getenv('SMTP_USER') ?: '');
-            $fromEmail = !empty($smtpUser) ? $smtpUser : (config('Email')->fromEmail ?: 'noreply@mymember.tech');
-            $fromName  = config('Email')->fromName ?: 'MyMember Official';
-            $emailService->setFrom($fromEmail, $fromName);
+            $fromEmail = !empty($smtpUser) ? $smtpUser : (config('Email')->fromEmail ?: 'labibfarrel960@gmail.com');
+            $fromName  = 'MyMember Official';
 
+            $emailService->setFrom($fromEmail, $fromName);
+            $emailService->setReplyTo($fromEmail, $fromName);
             $emailService->setTo($member->email);
-            $emailService->setSubject('Pengingat Masa Aktif Membership MyMember (H-2)');
+            $emailService->setSubject("Pengingat Masa Aktif Membership MyMember - {$nama}");
             $emailService->setMessage($message);
             $emailService->setAltMessage($altMessage);
-
 
             // Jika email sukses terkirim, update status
             if ($emailService->send()) {
