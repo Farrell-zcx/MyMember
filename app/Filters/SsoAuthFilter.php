@@ -61,8 +61,14 @@ class SsoAuthFilter implements FilterInterface
         $clientId    = getenv('SSO_CLIENT_ID') ?: env('sso.clientId', 'mymember-app');
         $redirectUri = getenv('SSO_REDIRECT_URI') ?: (!$isLocalhost ? $defaultRedirect : env('sso.redirectUri')) ?: $defaultRedirect;
 
-        if (!$isLocalhost || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
-            $ssoBaseUrl  = str_replace('http://sso.', 'https://sso.', $ssoBaseUrl);
+        if (!$isLocalhost) {
+            if (strpos($ssoBaseUrl, 'localhost') !== false || strpos($ssoBaseUrl, '.test') !== false) {
+                $ssoBaseUrl = $defaultSsoBase;
+            }
+            if (strpos($redirectUri, 'localhost') !== false || strpos($redirectUri, '.test') !== false) {
+                $redirectUri = $defaultRedirect;
+            }
+            $ssoBaseUrl  = str_replace('http://', 'https://', $ssoBaseUrl);
             $redirectUri = str_replace('http://mymember.tech', 'https://mymember.tech', $redirectUri);
         }
 

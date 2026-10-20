@@ -22,20 +22,32 @@ class App extends BaseConfig
     {
         parent::__construct();
 
-        if ($env = getenv('MYMEMBER_BASE_URL')) {
-            $this->baseURL = rtrim($env, '/') . '/';
-        } elseif ($env = getenv('app.baseURL')) {
-            $this->baseURL = rtrim($env, '/') . '/';
-        }
-
         // Auto-detect HTTPS (dari direct SSL maupun reverse proxy Nginx via X-Forwarded-Proto)
         $isHttps = (isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] === 'on' || $_SERVER['HTTPS'] == 1))
             || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
             || (isset($_SERVER['HTTP_FRONT_END_HTTPS']) && strtolower($_SERVER['HTTP_FRONT_END_HTTPS']) === 'on');
 
+        $scheme = $isHttps ? 'https://' : 'http://';
+
+        if (isset($_SERVER['HTTP_HOST']) && !empty($_SERVER['HTTP_HOST'])) {
+            $this->baseURL = $scheme . $_SERVER['HTTP_HOST'] . '/';
+        } elseif ($env = getenv('MYMEMBER_BASE_URL')) {
+            $this->baseURL = rtrim($env, '/') . '/';
+        } elseif ($env = getenv('app.baseURL')) {
+            $this->baseURL = rtrim($env, '/') . '/';
+        } else {
+            $this->baseURL = 'https://mymember.tech/';
+        }
+
         if ($isHttps) {
             $this->baseURL = preg_replace('/^http:\/\//i', 'https://', $this->baseURL);
         }
+
+        if (isset($_SERVER['HTTP_HOST']) && !in_array($_SERVER['HTTP_HOST'], $this->allowedHostnames, true)) {
+            $this->allowedHostnames[] = $_SERVER['HTTP_HOST'];
+        }
+        $this->allowedHostnames[] = 'mymember.tech';
+        $this->allowedHostnames[] = 'www.mymember.tech';
     }
 
     /**
