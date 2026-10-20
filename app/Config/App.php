@@ -18,6 +18,26 @@ class App extends BaseConfig
      */
     public string $baseURL = 'http://localhost:8080/';
 
+    public function __construct()
+    {
+        parent::__construct();
+
+        if ($env = getenv('MYMEMBER_BASE_URL')) {
+            $this->baseURL = rtrim($env, '/') . '/';
+        } elseif ($env = getenv('app.baseURL')) {
+            $this->baseURL = rtrim($env, '/') . '/';
+        }
+
+        // Auto-detect HTTPS (dari direct SSL maupun reverse proxy Nginx via X-Forwarded-Proto)
+        $isHttps = (isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] === 'on' || $_SERVER['HTTPS'] == 1))
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+            || (isset($_SERVER['HTTP_FRONT_END_HTTPS']) && strtolower($_SERVER['HTTP_FRONT_END_HTTPS']) === 'on');
+
+        if ($isHttps) {
+            $this->baseURL = preg_replace('/^http:\/\//i', 'https://', $this->baseURL);
+        }
+    }
+
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
      * If you want to accept multiple Hostnames, set this.
