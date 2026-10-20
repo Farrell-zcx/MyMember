@@ -31,8 +31,8 @@ class SsoAuthFilter implements FilterInterface
 
     private function isBlacklisted(string $jti): bool
     {
-        $host = env('redis.host', '127.0.0.1');
-        $port = (int) env('redis.port', 6379);
+        $host = getenv('REDIS_HOST') ?: env('redis.host', '127.0.0.1');
+        $port = (int) (getenv('REDIS_PORT') ?: env('redis.port', 6379));
 
         $fp = @fsockopen($host, $port, $errno, $errstr, 0.2);
         if (!$fp) {
@@ -53,10 +53,20 @@ class SsoAuthFilter implements FilterInterface
         $state = bin2hex(random_bytes(16));
         session()->set('sso_state', $state);
 
-        $isDocker     = isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
-        $ssoBaseUrl   = env('sso.baseUrl') ?: ($isDocker ? 'http://sso.localhost' : 'http://sso-engine.test');
-        $clientId     = env('sso.clientId', 'mymember-app');
-        $redirectUri  = env('sso.redirectUri') ?: ($isDocker ? 'http://mymember.localhost/auth/callback' : 'http://mymember.test/auth/callback');
+        $isLocalhost  = isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
+        $isProduction = isset($_SERVER['HTTP_HOST']) && (strpos($_SERVER['HTTP_HOST'], 'mymember.tech') !== false || strpos($_SERVER['HTTP_HOST'], 'sslip.io') !== false);
+
+        $defaultSsoBase  = $isProduction ? 'https://sso.31.97.48.33.sslip.io' : ($isLocalhost ? 'http://sso.localhost' : 'http://sso-engine.test');
+        $defaultRedirect = $isProduction ? 'https://mymember.tech/auth/callback' : ($isLocalhost ? 'http://mymember.localhost/auth/callback' : 'http://mymember.test/auth/callback');
+
+        $ssoBaseUrl  = getenv('SSO_BASE_URL') ?: ($isProduction ? $defaultSsoBase : env('sso.baseUrl')) ?: $defaultSsoBase;
+        $clientId    = getenv('SSO_CLIENT_ID') ?: env('sso.clientId', 'mymember-app');
+        $redirectUri = getenv('SSO_REDIRECT_URI') ?: ($isProduction ? $defaultRedirect : env('sso.redirectUri')) ?: $defaultRedirect;
+
+        if ($isProduction || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+            $ssoBaseUrl  = str_replace('http://sso.', 'https://sso.', $ssoBaseUrl);
+            $redirectUri = str_replace('http://mymember.tech', 'https://mymember.tech', $redirectUri);
+        }
 
         $authorizeUrl = rtrim($ssoBaseUrl, '/') . '/authorize?' . http_build_query([
             'client_id'    => $clientId,
