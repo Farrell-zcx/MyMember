@@ -79,14 +79,41 @@ class SendReminderEmail extends BaseCommand
         $countSent = 0;
         $countFailed = 0;
 
+        // Ambil konfigurasi SMTP resmi Google Mail
+        $smtpHost   = getenv('SMTP_HOST') ?: (config('Email')->SMTPHost ?: 'smtp.gmail.com');
+        $smtpUser   = getenv('SMTP_USER') ?: (config('Email')->SMTPUser ?: 'labibfarrel960@gmail.com');
+        $smtpPass   = getenv('SMTP_PASS') ?: (config('Email')->SMTPPass ?: 'niyuuncmfmgtbgsl');
+        $smtpPort   = (int) (getenv('SMTP_PORT') ?: (config('Email')->SMTPPort ?: 587));
+        $smtpCrypto = getenv('SMTP_CRYPTO') ?: (config('Email')->SMTPCrypto ?: 'tls');
+        $fromEmail  = $smtpUser;
+        $fromName   = getenv('SMTP_FROM_NAME') ?: (config('Email')->fromName ?: 'Farrel Labib - MyMember');
+
+        $smtpConfig = [
+            'protocol'       => 'smtp',
+            'SMTPHost'       => $smtpHost,
+            'SMTPUser'       => $smtpUser,
+            'SMTPPass'       => $smtpPass,
+            'SMTPPort'       => $smtpPort,
+            'SMTPCrypto'     => $smtpCrypto,
+            'SMTPAuthMethod' => 'login',
+            'mailType'       => 'html',
+            'charset'        => 'UTF-8',
+            'newline'        => "\r\n",
+            'CRLF'           => "\r\n",
+            'userAgent'      => '',
+        ];
+
+        CLI::write("[SMTP] Menggunakan server: {$smtpHost}:{$smtpPort} (Akun: {$smtpUser})", 'cyan');
+
         foreach ($members as $member) {
             $nama = esc($member->nama_lengkap);
             $tglExpired = date('d F Y', strtotime($member->tgl_expired_member));
 
-            // Bersihkan konfigurasi & attachment sebelumnya
+            // Bersihkan konfigurasi pesan sebelumnya & inisialisasi ulang SMTP
             $emailService->clear(true);
+            $emailService->initialize($smtpConfig);
 
-            // Render view email template identik dengan SSO Engine
+            // Render view email template dengan header branding asli MyMember
             $emailMessage = view('email/reminder', [
                 'nama'       => $nama,
                 'tglExpired' => $tglExpired,
@@ -94,11 +121,8 @@ class SendReminderEmail extends BaseCommand
 
             $altMessage = "Halo {$nama},\n\nKami ingin menginformasikan bahwa masa aktif keanggotaan MyMember Anda akan segera berakhir dalam 2 hari lagi.\nTanggal Kadaluarsa: {$tglExpired}\n\nAgar dapat terus menggunakan fasilitas tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.\n\nHubungi admin di tempat untuk informasi perpanjangan paket.\n\nSalam,\nMyMember System";
 
-            // Menggunakan konfigurasi Config\Email yang identik dengan SSO Engine
-            $fromEmail = config('Email')->fromEmail ?: (getenv('SMTP_USER') ?: 'labibfarrel960@gmail.com');
-            $fromName  = config('Email')->fromName ?: (getenv('SMTP_FROM_NAME') ?: 'Farrel Labib - MyMember');
-
             $emailService->setFrom($fromEmail, $fromName);
+            $emailService->setReplyTo($fromEmail, $fromName);
             $emailService->setTo($member->email);
             $emailService->setSubject('[MyMember] Pengingat Masa Aktif Membership (H-2)');
             $emailService->setMessage($emailMessage);
@@ -115,8 +139,9 @@ class SendReminderEmail extends BaseCommand
                 $countFailed++;
                 log_message('error', 'Gagal mengirim email reminder ke: ' . $member->email);
                 CLI::write("Gagal mengirim email ke: {$member->email}", 'red');
+                CLI::write($emailService->printDebugger(['headers']), 'red');
             }
-            sleep(2); // Beri jeda 2 detik agar tidak terkena rate limit Mailtrap (maks 1 email/detik)
+            sleep(2); // Beri jeda 2 detik agar tidak terkena rate limit
         }
 
 
