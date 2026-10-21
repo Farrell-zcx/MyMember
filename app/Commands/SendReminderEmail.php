@@ -82,7 +82,7 @@ class SendReminderEmail extends BaseCommand
         // Ambil konfigurasi SMTP resmi Google Mail
         $smtpHost   = getenv('SMTP_HOST') ?: (config('Email')->SMTPHost ?: 'smtp.gmail.com');
         $smtpUser   = getenv('SMTP_USER') ?: (config('Email')->SMTPUser ?: 'labibfarrel960@gmail.com');
-        $smtpPass   = getenv('SMTP_PASS') ?: (config('Email')->SMTPPass ?: 'niyuuncmfmgtbgsl');
+        $smtpPass   = getenv('SMTP_PASS') ?: (config('Email')->SMTPPass ?: '');
         $smtpPort   = (int) (getenv('SMTP_PORT') ?: (config('Email')->SMTPPort ?: 587));
         $smtpCrypto = getenv('SMTP_CRYPTO') ?: (config('Email')->SMTPCrypto ?: 'tls');
         $fromEmail  = $smtpUser;
@@ -113,10 +113,19 @@ class SendReminderEmail extends BaseCommand
             $emailService->clear(true);
             $emailService->initialize($smtpConfig);
 
+            // Lampirkan logo secara inline (CID) agar muncul 100% instan di Gmail & kebal blokir proxy
+            $logoPath = FCPATH . 'images/logo.png';
+            $logoCid  = '';
+            if (is_file($logoPath)) {
+                $emailService->attach($logoPath, 'inline', 'logo.png', 'image/png');
+                $logoCid = $emailService->setAttachmentCID('logo.png');
+            }
+
             // Render view email template dengan header branding asli MyMember
             $emailMessage = view('email/reminder', [
                 'nama'       => $nama,
                 'tglExpired' => $tglExpired,
+                'logoCid'    => $logoCid,
             ]);
 
             $altMessage = "Halo {$nama},\n\nKami ingin menginformasikan bahwa masa aktif keanggotaan MyMember Anda akan segera berakhir dalam 2 hari lagi.\nTanggal Kadaluarsa: {$tglExpired}\n\nAgar dapat terus menikmati fasilitas layanan tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.\n\nHubungi admin di lokasi untuk informasi perpanjangan paket keanggotaan Anda.\n\nSalam,\nMyMember Official";

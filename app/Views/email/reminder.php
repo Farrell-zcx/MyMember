@@ -2,6 +2,7 @@
 /**
  * @var string $nama
  * @var string $tglExpired
+ * @var string $logoCid
  */
 ?>
 <!DOCTYPE html>
@@ -23,7 +24,11 @@
                             <table border="0" cellpadding="0" cellspacing="0">
                                 <tr>
                                     <td style="vertical-align: middle; padding-right: 12px;">
-                                        <img src="https://mymember.tech/images/logo.png" alt="MyMember Logo" width="40" height="40" style="display: block; width: 40px; height: 40px; border: 0;">
+                                        <?php if (!empty($logoCid)): ?>
+                                            <img src="cid:<?= esc($logoCid) ?>" alt="MyMember Logo" width="40" height="40" style="display: block; width: 40px; height: 40px; border: 0;">
+                                        <?php else: ?>
+                                            <img src="https://mymember.tech/images/logo.png" alt="MyMember Logo" width="40" height="40" style="display: block; width: 40px; height: 40px; border: 0;">
+                                        <?php endif; ?>
                                     </td>
                                     <td style="vertical-align: middle; text-align: left;">
                                         <h1 style="margin: 0; font-size: 26px; font-weight: bold; color: #333333; line-height: 1.2;">
