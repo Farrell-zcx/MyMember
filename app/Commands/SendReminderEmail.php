@@ -119,12 +119,11 @@ class SendReminderEmail extends BaseCommand
                 'tglExpired' => $tglExpired,
             ]);
 
-            $altMessage = "Halo {$nama},\n\nKami ingin menginformasikan bahwa masa aktif keanggotaan MyMember Anda akan segera berakhir dalam 2 hari lagi.\nTanggal Kadaluarsa: {$tglExpired}\n\nAgar dapat terus menggunakan fasilitas tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.\n\nHubungi admin di tempat untuk informasi perpanjangan paket.\n\nSalam,\nMyMember System";
+            $altMessage = "Halo {$nama},\n\nKami ingin menginformasikan bahwa masa aktif keanggotaan MyMember Anda akan segera berakhir dalam 2 hari lagi.\nTanggal Kadaluarsa: {$tglExpired}\n\nAgar dapat terus menikmati fasilitas layanan tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.\n\nHubungi admin di lokasi untuk informasi perpanjangan paket keanggotaan Anda.\n\nSalam,\nMyMember Official";
 
             $emailService->setFrom($fromEmail, $fromName);
-            $emailService->setReplyTo($fromEmail, $fromName);
             $emailService->setTo($member->email);
-            $emailService->setSubject('[MyMember] Pengingat Masa Aktif Membership (H-2)');
+            $emailService->setSubject('[MyMember] Informasi Masa Aktif Keanggotaan Anda');
             $emailService->setMessage($emailMessage);
             $emailService->setAltMessage($altMessage);
 
