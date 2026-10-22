@@ -9,7 +9,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Informasi Masa Aktif Membership MyMember</title>
+    <title>Pengingat Masa Aktif Membership MyMember</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f9;">
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f6f9; padding: 35px 15px;">
@@ -41,23 +41,23 @@
                         <td style="padding: 30px 25px 20px 25px; color: #333333;">
                             <h2 style="margin-top: 0; margin-bottom: 15px; color: #111827; font-size: 19px; font-weight: 600;">Halo, <?= esc($nama) ?>!</h2>
                             <p style="color: #4b5563; line-height: 1.6; font-size: 15px; margin-top: 0; margin-bottom: 20px;">
-                                Kami menginformasikan status masa aktif keanggotaan <strong>MyMember</strong> Anda saat ini:
+                                Kami ingin menginformasikan bahwa masa aktif keanggotaan <strong>MyMember</strong> Anda akan segera berakhir dalam <strong>2 hari lagi</strong>.
                             </p>
                             
-                            <!-- Membership Info Box -->
-                            <div style="background-color: #eff6ff; border-left: 4px solid #2563eb; padding: 15px 20px; margin: 20px 0; border-radius: 4px;">
-                                <p style="margin: 0; color: #1e40af; font-size: 15px; font-weight: 600;">
-                                    Masa Aktif Tercatat Hingga: <?= esc($tglExpired) ?>
+                            <!-- Expiration Alert Box -->
+                            <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px 20px; margin: 20px 0; border-radius: 4px;">
+                                <p style="margin: 0; color: #991b1b; font-size: 15px; font-weight: 600;">
+                                    Tanggal Kadaluarsa: <?= esc($tglExpired) ?>
                                 </p>
                             </div>
 
                             <p style="color: #4b5563; line-height: 1.6; font-size: 15px; margin-bottom: 25px;">
-                                Agar dapat terus menikmati seluruh fasilitas layanan tanpa kendala, Anda dapat melakukan perpanjangan paket keanggotaan sebelum tanggal tersebut tiba.
+                                Agar dapat terus menggunakan fasilitas tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.
                             </p>
                             
                             <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px 20px; text-align: center; margin-top: 25px;">
                                 <p style="font-size: 13px; color: #6b7280; margin: 0; line-height: 1.5;">
-                                    Hubungi admin atau customer service di lokasi untuk informasi status atau perpanjangan paket keanggotaan Anda.
+                                    Hubungi admin di tempat untuk informasi perpanjangan paket.
                                 </p>
                             </div>
                         </td>
