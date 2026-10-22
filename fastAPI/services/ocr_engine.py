@@ -228,61 +228,59 @@ def _reconstruct_nik(candidates, dob_digits, provinsi_code):
 
 def extract_nik_fast(gray, is_cropped=False):
     """
-    Ekstraksi NIK super cepat dengan 2-stage execution:
-    Stage 1: Top-crop (area NIK) dengan Scanner Fix, Gentle, & Sharp Adaptive (~0.5s).
-    Stage 2: Fallback ke pipelines lain hanya jika Stage 1 belum menemukan NIK yang valid.
+    Ekstraksi NIK super cepat dengan Fast-Exit sekuensial:
+    Stage 1: Jalankan Scanner Fix & Sharp Adaptive.
+    Begitu ditemukan NIK 16 digit yang valid (_is_valid_nik), LANGSUNG RETURN (<0.5s)!
     """
     h, w = gray.shape[:2]
     crop_height = int(h * 0.65)
     top_crop = gray[:crop_height, :]
     top_quality = _analyze_image_quality(top_crop)
 
-    # Stage 1: Fast Path (Scanner Fix, Gentle, Sharp Adaptive pada Top Crop)
-    fast_tasks = [
-        (nik_pipe_scanner_fix(top_crop, top_quality), r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789', 3),
-        (nik_pipe_gentle(top_crop, top_quality), r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789', 2),
-        (nik_pipe_sharp_adaptive(top_crop, top_quality), r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789', 2),
-    ]
-
+    # 1. Pipeline Scanner Fix (terbukti paling akurat untuk KTP standar)
+    img_scanner = nik_pipe_scanner_fix(top_crop, top_quality)
+    txt_scanner = _ocr_worker(img_scanner, r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789')
     candidates = []
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = {executor.submit(_ocr_worker, img, cfg): weight for img, cfg, weight in fast_tasks}
-        for future in as_completed(futures):
-            weight = futures[future]
-            text = future.result()
-            if text:
-                found = _find_valid_niks(text)
-                for f in found:
-                    candidates.append((f, weight))
+    if txt_scanner:
+        for f in _find_valid_niks(txt_scanner):
+            candidates.append((f, 3))
+            if _is_valid_nik(f):
+                return [(f, 10)]  # Fast Exit!
 
-    # Fast Exit jika sudah menemukan kandidat NIK 16 digit yang valid
-    if any(_is_plausible_nik(c[0]) for c in candidates):
+    # 2. Pipeline Sharp Adaptive (untuk pencahayaan redup / lampu kuning)
+    img_sharp = nik_pipe_sharp_adaptive(top_crop, top_quality)
+    txt_sharp = _ocr_worker(img_sharp, r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789')
+    if txt_sharp:
+        for f in _find_valid_niks(txt_sharp):
+            candidates.append((f, 2))
+            if _is_valid_nik(f):
+                return [(f, 10)]
+
+    # 3. Pipeline Gentle (kontras ringan untuk teks tipis / dot-matrix)
+    img_gentle = nik_pipe_gentle(top_crop, top_quality)
+    txt_gentle = _ocr_worker(img_gentle, r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789')
+    if txt_gentle:
+        for f in _find_valid_niks(txt_gentle):
+            candidates.append((f, 2))
+            if _is_valid_nik(f):
+                return candidates
+
+    if candidates and any(_is_plausible_nik(c[0]) for c in candidates):
         return candidates
 
-    # Stage 2: Deep Fallback (Jika foto sangat gelap / miring / buram)
-    digit_configs = [
-        r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789',
-        r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789',
-    ]
-
-    fallback_tasks = []
-    for pipe_fn in NIK_PIPELINES:
+    # Stage 2: Deep Fallback (Hanya untuk kondisi foto ekstrem)
+    for pipe_fn in [nik_pipe_morph_thick, nik_pipe_morph_thin]:
         try:
             p_img = pipe_fn(top_crop, top_quality)
-            for cfg in digit_configs:
-                fallback_tasks.append((p_img, cfg, 2))
+            for cfg in [r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789', r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789']:
+                t = _ocr_worker(p_img, cfg)
+                if t:
+                    for f in _find_valid_niks(t):
+                        candidates.append((f, 2))
+                        if _is_valid_nik(f):
+                            return candidates
         except Exception:
             continue
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = {executor.submit(_ocr_worker, img, cfg): weight for img, cfg, weight in fallback_tasks}
-        for future in as_completed(futures):
-            weight = futures[future]
-            text = future.result()
-            if text:
-                found = _find_valid_niks(text)
-                for f in found:
-                    candidates.append((f, weight))
 
     return candidates
 
@@ -365,15 +363,15 @@ def _parse_nama(text):
 
 def extract_fulltext(gray):
     """
-    Full-text OCR dengan 2-stage execution:
-    Stage 1: Standard Text pipeline with PSM 6 (~0.35s).
-    Stage 2: Fallback ke CLAHE, Scanner Fix, Morph jika Nama atau teks belum lengkap.
+    Full-text OCR dengan Fast-Exit sekuensial:
+    Stage 1: Standard Text pipeline dengan PSM 6 & bahasa Indonesia (~0.4s).
+    Stage 2: Fallback ke CLAHE & Scanner Fix jika Nama belum terdeteksi.
     """
     quality = _analyze_image_quality(gray)
 
     # Stage 1: Fast path
     p_std = text_pipe_standard(gray, quality)
-    raw_std = _ocr_worker(p_std, r'--oem 3 --psm 6', lang='ind+eng')
+    raw_std = _ocr_worker(p_std, r'--oem 3 --psm 6', lang='ind')
 
     nama = _parse_nama(raw_std)
     dob = _extract_dob_digits(raw_std)
@@ -382,24 +380,30 @@ def extract_fulltext(gray):
     if nama and nama != "Tidak terdeteksi" and (dob or prov):
         return nama, dob, prov, raw_std
 
-    # Stage 2: Deep Fallback
-    configs = [r'--oem 3 --psm 6']
-    tasks = []
-    for pipe_fn in TEXT_PIPELINES:
+    # Stage 2: Fallback CLAHE (ruangan gelap / warm light) & Scanner Fix
+    fallback_pipes = [text_pipe_clahe, text_pipe_scanner_fix]
+    results = [raw_std] if raw_std else []
+
+    for pipe_fn in fallback_pipes:
         try:
             processed = pipe_fn(gray, quality)
-            for cfg in configs:
-                tasks.append((processed, cfg))
-        except Exception:
-            continue
-
-    results = [raw_std] if raw_std else []
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = [executor.submit(_ocr_worker, img, cfg, 'ind+eng') for img, cfg in tasks]
-        for future in futures:
-            text = future.result()
+            text = _ocr_worker(processed, r'--oem 3 --psm 6', lang='ind')
             if text and text.strip():
                 results.append(text)
+                n = _parse_nama(text)
+                if n and not nama:
+                    nama = n
+                d = _extract_dob_digits(text)
+                if d and not dob:
+                    dob = d
+                p = _extract_provinsi_code(text)
+                if p and not prov:
+                    prov = p
+
+                if nama and nama != "Tidak terdeteksi" and (dob or prov):
+                    return nama, dob, prov, text
+        except Exception:
+            continue
 
     is_female = False
     for text in results:

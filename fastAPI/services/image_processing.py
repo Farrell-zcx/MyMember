@@ -288,15 +288,8 @@ def detect_and_crop_ktp(gray):
     h, w = gray.shape[:2]
     img_aspect = float(w) / h if h > 0 else 0
     img_area = h * w
-    
-    # 1. Jika aspek rasio gambar sudah merupakan kartu/frame horizontal KTP (1.30 - 1.90),
-    # kamera Kiosk / crop frontend sudah memposisikan KTP dalam frame ini.
-    # Jangan potong lagi agar pinggiran NIK dan nama tidak terpotong (menghindari double-cropping).
-    if 1.30 <= img_aspect <= 1.90:
-        return gray, True
-    
-    # 2. Untuk gambar foto utuh dari kamera HP / scan dokumen besar (rasio bukan kartu standar):
-    blurred = cv2.GaussianBlur(gray, (9, 9), 0)
+
+    blurred = cv2.GaussianBlur(gray, (7, 7), 0)
     corners = [
         blurred[0:15, 0:15],
         blurred[0:15, w-15:w],
@@ -304,56 +297,52 @@ def detect_and_crop_ktp(gray):
         blurred[h-15:h, w-15:w]
     ]
     bg_mean = np.mean([np.mean(c) for c in corners])
-    
+
     threshold_vals = [
-        int(bg_mean - 20),
-        int(bg_mean - 35),
-        int(bg_mean - 55),
-        int(bg_mean - 70)
+        int(bg_mean - 25),
+        int(bg_mean - 50),
+        160, 130, 100
     ]
-    threshold_vals = [max(90, min(245, val)) for val in threshold_vals]
-    for b in [200, 180, 160, 140, 110, 80]:
-        if b not in threshold_vals:
-            threshold_vals.append(b)
-    
+    threshold_vals = [max(70, min(240, val)) for val in threshold_vals]
+
     best_cnt = None
     max_area = 0
-    
+
     for threshold_val in threshold_vals:
         _, thresh = cv2.threshold(blurred, threshold_val, 255, cv2.THRESH_BINARY_INV)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
+
         for cnt in contours:
             rect = cv2.minAreaRect(cnt)
             (cx, cy), (cw, ch), angle = rect
-            
+
             if cw == 0 or ch == 0:
                 continue
             aspect_ratio = max(cw, ch) / min(cw, ch)
             area = cw * ch
-            
-            # Kartu KTP memiliki rasio ~1.586. Kontur kartu yang sah harus 1.30 - 1.90
-            if 0.20 * img_area < area < 0.96 * img_area:
+
+            # Kartu KTP di dalam background (area 15% - 88% dari total frame)
+            if 0.15 * img_area < area < 0.88 * img_area:
                 if 1.30 <= aspect_ratio <= 1.90:
                     if area > max_area:
                         max_area = area
                         best_cnt = cnt
-                        
+
     if best_cnt is not None:
         rect = cv2.minAreaRect(best_cnt)
         (cx, cy), (cw, ch), angle = rect
-        
+
         if ch > cw:
             angle -= 90
-            
+
         while angle < -45:
             angle += 90
         while angle > 45:
             angle -= 90
-            
+
         if abs(angle) < 2.5:
             x, y, cw_bound, ch_bound = cv2.boundingRect(best_cnt)
-            pad = 15
+            pad = 12
             x1 = max(0, x - pad)
             y1 = max(0, y - pad)
             x2 = min(w, x + cw_bound + pad)
@@ -363,29 +352,29 @@ def detect_and_crop_ktp(gray):
             box = cv2.boxPoints(rect)
             box = np.intp(box)
             src_pts = box.astype("float32")
-            
+
             def order_points(pts):
                 rect_ordered = np.zeros((4, 2), dtype="float32")
                 s = pts.sum(axis=1)
-                rect_ordered[0] = pts[np.argmin(s)] 
-                rect_ordered[2] = pts[np.argmax(s)] 
+                rect_ordered[0] = pts[np.argmin(s)]
+                rect_ordered[2] = pts[np.argmax(s)]
                 diff = np.diff(pts, axis=1)
-                rect_ordered[1] = pts[np.argmin(diff)] 
-                rect_ordered[3] = pts[np.argmax(diff)] 
+                rect_ordered[1] = pts[np.argmin(diff)]
+                rect_ordered[3] = pts[np.argmax(diff)]
                 return rect_ordered
-                
+
             src_pts = order_points(src_pts)
             width_A = np.linalg.norm(src_pts[2] - src_pts[3])
             width_B = np.linalg.norm(src_pts[1] - src_pts[0])
             max_width = max(int(width_A), int(width_B))
-            
+
             height_A = np.linalg.norm(src_pts[1] - src_pts[2])
             height_B = np.linalg.norm(src_pts[0] - src_pts[3])
             max_height = max(int(height_A), int(height_B))
-            
+
             if max_height > max_width:
                 max_width, max_height = max_height, max_width
-                pad = 10
+                pad = 8
                 dst_pts = np.array([
                     [max_width - 1 + pad, pad],
                     [max_width - 1 + pad, max_height - 1 + pad],
@@ -393,16 +382,20 @@ def detect_and_crop_ktp(gray):
                     [pad, pad]
                 ], dtype="float32")
             else:
-                pad = 10
+                pad = 8
                 dst_pts = np.array([
                     [pad, pad],
                     [max_width - 1 + pad, pad],
                     [max_width - 1 + pad, max_height - 1 + pad],
                     [pad, max_height - 1 + pad]
                 ], dtype="float32")
-            
+
             M = cv2.getPerspectiveTransform(src_pts, dst_pts)
             warped = cv2.warpPerspective(gray, M, (max_width + 2*pad, max_height + 2*pad), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
             return warped, True
+
+    # Jika tidak ada kartu di tengah frame, dan aspek rasio gambar sudah kartu (1.30 - 1.90), gunakan apa adanya
+    if 1.30 <= img_aspect <= 1.90:
+        return gray, True
 
     return gray, False

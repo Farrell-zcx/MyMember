@@ -113,22 +113,13 @@ class SendReminderEmail extends BaseCommand
             $emailService->clear(true);
             $emailService->initialize($smtpConfig);
 
-            // Lampirkan logo secara inline (CID) agar muncul 100% instan di Gmail & kebal blokir proxy
-            $logoPath = FCPATH . 'images/logo.png';
-            $logoCid  = '';
-            if (is_file($logoPath)) {
-                $emailService->attach($logoPath, 'inline', 'logo.png', 'image/png');
-                $logoCid = $emailService->setAttachmentCID('logo.png');
-            }
-
             // Render view email template dengan header branding asli MyMember
             $emailMessage = view('email/reminder', [
                 'nama'       => $nama,
                 'tglExpired' => $tglExpired,
-                'logoCid'    => $logoCid,
             ]);
 
-            $altMessage = "Halo {$nama},\n\nKami ingin menginformasikan bahwa masa aktif keanggotaan MyMember Anda akan segera berakhir dalam 2 hari lagi.\nTanggal Kadaluarsa: {$tglExpired}\n\nAgar dapat terus menikmati fasilitas layanan tanpa kendala, silakan lakukan perpanjangan keanggotaan sebelum tanggal kadaluarsa tiba.\n\nHubungi admin di lokasi untuk informasi perpanjangan paket keanggotaan Anda.\n\nSalam,\nMyMember Official";
+            $altMessage = "Halo {$nama},\n\nKami menginformasikan bahwa masa aktif keanggotaan MyMember Anda tercatat aktif hingga: {$tglExpired}.\n\nAgar dapat terus menikmati fasilitas layanan tanpa kendala, silakan lakukan perpanjangan sebelum tanggal tersebut tiba.\n\nHubungi admin di lokasi untuk informasi status atau perpanjangan paket keanggotaan Anda.\n\nSalam,\nMyMember Official";
 
             $emailService->setFrom($fromEmail, $fromName);
             $emailService->setTo($member->email);

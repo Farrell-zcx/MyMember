@@ -31,9 +31,7 @@ class OcrController extends BaseController
 
         try {
             // Kirim file sebagai multipart data ke FastAPI
-            $isDocker = isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
-            $defaultOcr = $isDocker ? 'http://mymember-ocr:8000' : 'http://127.0.0.1:8000';
-            $ocrBase = env('OCR_BASE_URL') ?: $defaultOcr;
+            $ocrBase = getenv('OCR_BASE_URL') ?: (env('OCR_BASE_URL') ?: 'http://mymember-ocr:8000');
             $response = $client->request('POST', rtrim($ocrBase, '/') . '/extract-ktp', [
                 'http_errors' => false,
                 'multipart' => [

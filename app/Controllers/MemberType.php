@@ -170,9 +170,7 @@ class MemberType extends Controller
             return $this->response->setJSON(['status' => 'error', 'pesan' => 'File tidak valid.']);
         }
 
-        $isDocker = isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
-        $defaultOcr = $isDocker ? 'http://mymember-ocr:8000' : 'http://127.0.0.1:8000';
-        $ocrBase = env('OCR_BASE_URL') ?: $defaultOcr;
+        $ocrBase = getenv('OCR_BASE_URL') ?: (env('OCR_BASE_URL') ?: 'http://mymember-ocr:8000');
 
         // Tembak FastAPI secara internal dari server ke server
         $client = Services::curlrequest();
