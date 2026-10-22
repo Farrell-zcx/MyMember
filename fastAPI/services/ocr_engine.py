@@ -6,7 +6,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.config import settings
 from services.image_processing import (
     _analyze_image_quality, NIK_PIPELINES, TEXT_PIPELINES,
-    nik_pipe_scanner_fix, nik_pipe_gentle, nik_pipe_sharp_adaptive, text_pipe_standard
+    nik_pipe_scanner_fix, nik_pipe_gentle, nik_pipe_sharp_adaptive,
+    nik_pipe_morph_thick, nik_pipe_morph_thin,
+    text_pipe_standard, text_pipe_clahe, text_pipe_scanner_fix
 )
 
 pytesseract.pytesseract.tesseract_cmd = settings.TESSERACT_CMD_PATH
