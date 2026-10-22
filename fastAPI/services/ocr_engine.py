@@ -6,9 +6,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.config import settings
 from services.image_processing import (
     _analyze_image_quality, NIK_PIPELINES, TEXT_PIPELINES,
+    nik_pipe_adaptive_glare, nik_pipe_scanner_contrast,
     nik_pipe_scanner_fix, nik_pipe_gentle, nik_pipe_sharp_adaptive,
     nik_pipe_morph_thick, nik_pipe_morph_thin,
-    text_pipe_standard, text_pipe_clahe, text_pipe_scanner_fix
+    text_pipe_enhanced, text_pipe_standard, text_pipe_clahe, text_pipe_scanner_fix
 )
 
 pytesseract.pytesseract.tesseract_cmd = settings.TESSERACT_CMD_PATH
@@ -230,59 +231,43 @@ def _reconstruct_nik(candidates, dob_digits, provinsi_code):
 
 def extract_nik_fast(gray, is_cropped=False):
     """
-    Ekstraksi NIK super cepat dengan Fast-Exit sekuensial:
-    Stage 1: Jalankan Scanner Fix & Sharp Adaptive.
-    Begitu ditemukan NIK 16 digit yang valid (_is_valid_nik), LANGSUNG RETURN (<0.5s)!
+    Ekstraksi NIK Dual-Stream Universal:
+    Stream 1: Adaptive Glare Filter (kebal pantulan cahaya hologram, lampu ruangan & bayangan HP).
+    Stream 2: Scanner Contrast Filter (optimal untuk Kiosk Tablet & Webcam).
     """
     h, w = gray.shape[:2]
     crop_height = int(h * 0.65)
     top_crop = gray[:crop_height, :]
     top_quality = _analyze_image_quality(top_crop)
 
-    # 1. Pipeline Scanner Fix (terbukti paling akurat untuk KTP standar)
-    img_scanner = nik_pipe_scanner_fix(top_crop, top_quality)
-    txt_scanner = _ocr_worker(img_scanner, r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789')
     candidates = []
+
+    # Stream 1: Adaptive Glare (PSM 6)
+    img_glare = nik_pipe_adaptive_glare(top_crop, top_quality)
+    txt_glare = _ocr_worker(img_glare, r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789')
+    if txt_glare:
+        for f in _find_valid_niks(txt_glare):
+            candidates.append((f, 4))
+            if _is_valid_nik(f):
+                return [(f, 10)]
+
+    # Stream 2: Scanner Contrast (PSM 6)
+    img_scanner = nik_pipe_scanner_contrast(top_crop, top_quality)
+    txt_scanner = _ocr_worker(img_scanner, r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789')
     if txt_scanner:
         for f in _find_valid_niks(txt_scanner):
             candidates.append((f, 3))
             if _is_valid_nik(f):
-                return [(f, 10)]  # Fast Exit!
-
-    # 2. Pipeline Sharp Adaptive (untuk pencahayaan redup / lampu kuning)
-    img_sharp = nik_pipe_sharp_adaptive(top_crop, top_quality)
-    txt_sharp = _ocr_worker(img_sharp, r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789')
-    if txt_sharp:
-        for f in _find_valid_niks(txt_sharp):
-            candidates.append((f, 2))
-            if _is_valid_nik(f):
                 return [(f, 10)]
 
-    # 3. Pipeline Gentle (kontras ringan untuk teks tipis / dot-matrix)
-    img_gentle = nik_pipe_gentle(top_crop, top_quality)
-    txt_gentle = _ocr_worker(img_gentle, r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789')
-    if txt_gentle:
-        for f in _find_valid_niks(txt_gentle):
-            candidates.append((f, 2))
-            if _is_valid_nik(f):
-                return candidates
-
-    if candidates and any(_is_plausible_nik(c[0]) for c in candidates):
-        return candidates
-
-    # Stage 2: Deep Fallback (Hanya untuk kondisi foto ekstrem)
-    for pipe_fn in [nik_pipe_morph_thick, nik_pipe_morph_thin]:
-        try:
-            p_img = pipe_fn(top_crop, top_quality)
-            for cfg in [r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789', r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789']:
-                t = _ocr_worker(p_img, cfg)
-                if t:
-                    for f in _find_valid_niks(t):
-                        candidates.append((f, 2))
-                        if _is_valid_nik(f):
-                            return candidates
-        except Exception:
-            continue
+    # Stream 3 (Fallback Single Line): PSM 7 jika NIK belum valid
+    if not any(_is_valid_nik(c[0]) for c in candidates):
+        txt_line = _ocr_worker(img_glare, r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789')
+        if txt_line:
+            for f in _find_valid_niks(txt_line):
+                candidates.append((f, 4))
+                if _is_valid_nik(f):
+                    return [(f, 10)]
 
     return candidates
 
