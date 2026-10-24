@@ -21,8 +21,12 @@ RUN pip install --no-cache-dir \
     python-multipart \
     python-dotenv \
     opencv-python-headless \
-    numpy \
-    pytesseract
+    "numpy<2" \
+    pytesseract \
+    Pillow \
+    "onnxruntime==1.19.2" \
+    "rapidocr-onnxruntime==1.3.24" \
+    && python -c "from rapidocr_onnxruntime import RapidOCR; RapidOCR()"
 
 # Copy kode aplikasi
 COPY . .

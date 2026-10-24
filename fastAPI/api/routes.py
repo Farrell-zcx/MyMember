@@ -1,70 +1,79 @@
 from fastapi import APIRouter, File, UploadFile
+from typing import Optional, List
 import io
 import cv2
 import numpy as np
 from PIL import Image, ImageOps
-from concurrent.futures import ThreadPoolExecutor
-from services.image_processing import (
-    normalize_ktp_image, get_adaptive_ktp_gray,
-    detect_and_crop_ktp, deskew_by_text
-)
-from services.ocr_engine import extract_nik_fast, extract_fulltext, _reconstruct_nik
+from services.image_processing import detect_and_warp_ktp_canonical
+from services.ocr_engine import extract_ktp_universal
 
 router = APIRouter()
 
-@router.post("/extract-ktp")
-async def extract_ktp(ktp_image: UploadFile = File(...)):
+def _decode_image_bytes(contents: bytes):
     try:
-        contents = await ktp_image.read()
-        
-        # 1. Decode dengan dukungan Auto-Transpose EXIF (mengoreksi rotasi sensor kamera HP)
-        try:
-            pil_img = Image.open(io.BytesIO(contents))
-            pil_img = ImageOps.exif_transpose(pil_img)
-            if pil_img.mode != 'RGB':
-                pil_img = pil_img.convert('RGB')
-            img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-        except Exception:
-            nparr = np.frombuffer(contents, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        pil_img = Image.open(io.BytesIO(contents))
+        pil_img = ImageOps.exif_transpose(pil_img)
+        if pil_img.mode != 'RGB':
+            pil_img = pil_img.convert('RGB')
+        return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+    except Exception:
+        nparr = np.frombuffer(contents, np.uint8)
+        return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        if img is None:
+@router.post("/extract-ktp")
+async def extract_ktp(
+    ktp_image: Optional[UploadFile] = File(None),
+    ktp_images: Optional[List[UploadFile]] = File(None)
+):
+    try:
+        files_to_process = []
+        if isinstance(ktp_images, (list, tuple)) and len(ktp_images) > 0:
+            files_to_process.extend(ktp_images)
+        elif ktp_image is not None and hasattr(ktp_image, 'read'):
+            files_to_process.append(ktp_image)
+
+        if not files_to_process:
+            return {"status": "error", "pesan": "Tidak ada file gambar KTP yang diunggah."}
+
+        best_result = None
+        main_filename = files_to_process[0].filename
+
+        for file_item in files_to_process:
+            contents = await file_item.read()
+            img = _decode_image_bytes(contents)
+            if img is None:
+                continue
+
+            # 1. Perspective Warp ke Rasio Kanonik KTP (1712 x 1080) pada Resolusi Penuh
+            canonical_card, detected = detect_and_warp_ktp_canonical(img, target_w=1712, target_h=1080)
+
+            # 2. Universal OCR Pipeline (RapidOCR + Tesseract + Kemendagri Validation)
+            result = extract_ktp_universal(canonical_card)
+
+            # Jika berhasil valid, langsung return hasil terbaik
+            if result.get("status") == "sukses":
+                best_result = result
+                main_filename = file_item.filename
+                break
+            elif best_result is None or (result.get("confidence", 0) > best_result.get("confidence", 0)):
+                best_result = result
+                main_filename = file_item.filename
+
+        if best_result is None:
             return {"status": "error", "pesan": "File gambar tidak valid atau corrupt."}
 
-        # 2. Standarisasi orientasi & dimensi:
-        # - Jika portrait (Tinggi > Lebar), otomatis diputar 90 derajat ke Landscape.
-        # - Kunci skala ke lebar ideal 1200px (stabil untuk HP, Tablet & Webcam).
-        img = normalize_ktp_image(img, target_width=1200)
-
-        # 3. Hybrid Blue Channel Preprocessing:
-        # Memanfaatkan keunggulan Blue Channel (memutihkan background cyan/biru e-KTP)
-        # dipadukan dengan CLAHE jika kondisi cahaya lampu kuning atau remang.
-        gray = get_adaptive_ktp_gray(img)
-
-        # 4. Deteksi dan potong batas kartu KTP
-        card_gray, detected = detect_and_crop_ktp(gray)
-        if not detected:
-            card_gray, _ = deskew_by_text(gray)
-
-        # 5. Ekstraksi Paralel NIK dan Full-Text (2 worker pas untuk 2 vCPU VPS)
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            future_nik = executor.submit(extract_nik_fast, card_gray, detected)
-            future_text = executor.submit(extract_fulltext, card_gray)
-
-            nik_candidates = future_nik.result()
-            nama, dob_digits, provinsi_code, raw_text = future_text.result()
-
-        # 6. Rekonstruksi NIK Cerdas dengan Cross-Validation Tanggal Lahir & Provinsi
-        nik = _reconstruct_nik(nik_candidates, dob_digits, provinsi_code)
-
         return {
-            "status": "sukses",
-            "nama_file": ktp_image.filename,
+            "status": best_result.get("status", "sukses"),
+            "nama_file": main_filename,
             "data_ktp": {
-                "nik": nik,
-                "nama": nama,
+                "nik": best_result.get("nik", "Tidak terdeteksi"),
+                "nama": best_result.get("nama", "Tidak terdeteksi"),
+                "kab_kota": best_result.get("metadata_wilayah", {}).get("kab_kota"),
+                "provinsi": best_result.get("metadata_wilayah", {}).get("provinsi_kode")
             },
-            "hasil_bacaan_mentah": raw_text,
+            "confidence": best_result.get("confidence", 0.0),
+            "alasan": best_result.get("alasan"),
+            "hasil_bacaan_mentah": best_result.get("raw_text", "")
         }
 
     except Exception as e:

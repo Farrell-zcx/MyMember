@@ -130,3 +130,5 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+test_ktp_images/
+fastAPI/test_ktp_images/

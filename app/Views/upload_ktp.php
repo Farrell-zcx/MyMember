@@ -423,30 +423,22 @@
             const hadStream = !!videoStream;
             stopCamera();
             if (hadStream) {
-                // Beri jeda 500ms agar OS HP melepas kunci hardware kamera sebelumnya
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
 
+            const activeDeviceId = deviceId || localStorage.getItem('kiosk_camera_device_id');
+
             let constraints = {
-                video: true
+                video: {
+                    width: { ideal: 3840, min: 1280 },
+                    height: { ideal: 2160, min: 720 }
+                }
             };
 
-            if (deviceId) {
-                constraints.video = {
-                    deviceId: {
-                        exact: deviceId
-                    }
-                };
+            if (activeDeviceId) {
+                constraints.video.deviceId = { exact: activeDeviceId };
             } else {
-                constraints.video = {
-                    facingMode: "user",
-                    width: {
-                        ideal: 1920
-                    },
-                    height: {
-                        ideal: 1080
-                    }
-                };
+                constraints.video.facingMode = { ideal: "environment" };
             }
 
             try {
@@ -455,7 +447,6 @@
                 document.getElementById('btnFallbackCamera').classList.add('hidden');
                 document.getElementById('loading').classList.add('hidden');
 
-                // Ambil daftar kamera untuk fitur "Ganti Kamera"
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 videoDevices = devices.filter(device => device.kind === 'videoinput');
 
@@ -463,77 +454,36 @@
                     document.getElementById('btnSwitchCamera').classList.remove('hidden');
                 }
 
-                // Mulai deteksi cerdas otomatis
+                if (activeDeviceId) {
+                    localStorage.setItem('kiosk_camera_device_id', activeDeviceId);
+                }
+
                 startSmartScanLoop();
                 startLiveStream();
             } catch (err) {
-                console.error("Kamera gagal diakses dengan constraint utama: ", err);
+                console.error("Kamera gagal diakses dengan constraint resolusi tinggi: ", err);
 
-                // Jika gagal dan belum pakai deviceId, coba fallback murni
-                if (!deviceId) {
-                    try {
-                        videoStream = await navigator.mediaDevices.getUserMedia({
-                            video: true
-                        });
-                        videoElement.srcObject = videoStream;
-                        document.getElementById('btnFallbackCamera').classList.add('hidden');
-                        document.getElementById('loading').classList.add('hidden');
+                // Fallback dengan constraint standar jika 4K/FHD ditolak hardware browser
+                try {
+                    const fallbackConstraints = {
+                        video: activeDeviceId ? { deviceId: activeDeviceId } : { facingMode: { ideal: "environment" } }
+                    };
+                    videoStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+                    videoElement.srcObject = videoStream;
+                    document.getElementById('btnFallbackCamera').classList.add('hidden');
+                    document.getElementById('loading').classList.add('hidden');
 
-                        const devices = await navigator.mediaDevices.enumerateDevices();
-                        videoDevices = devices.filter(device => device.kind === 'videoinput');
-                        if (videoDevices.length > 1) {
-                            document.getElementById('btnSwitchCamera').classList.remove('hidden');
-                        }
-
-                        // Mulai deteksi cerdas otomatis
-                        startSmartScanLoop();
-                        startLiveStream();
-                    } catch (err2) {
-                        console.error("Kamera gagal total: ", err2);
-                        showCameraError("Kamera tidak diizinkan atau tidak ditemukan. Silakan gunakan upload manual.");
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    videoDevices = devices.filter(device => device.kind === 'videoinput');
+                    if (videoDevices.length > 1) {
+                        document.getElementById('btnSwitchCamera').classList.remove('hidden');
                     }
-                } else {
-                    console.warn("Mencoba fallback deviceId tanpa exact constraints...");
-                    try {
-                        videoStream = await navigator.mediaDevices.getUserMedia({
-                            video: {
-                                deviceId: deviceId
-                            }
-                        });
-                        videoElement.srcObject = videoStream;
-                        document.getElementById('btnFallbackCamera').classList.add('hidden');
-                        document.getElementById('loading').classList.add('hidden');
 
-                        const devices = await navigator.mediaDevices.enumerateDevices();
-                        videoDevices = devices.filter(device => device.kind === 'videoinput');
-                        if (videoDevices.length > 1) {
-                            document.getElementById('btnSwitchCamera').classList.remove('hidden');
-                        }
-
-                        startSmartScanLoop();
-                        startLiveStream();
-                    } catch (err3) {
-                        console.warn("Mencoba fallback murni (video: true) untuk kamera kedua...");
-                        try {
-                            videoStream = await navigator.mediaDevices.getUserMedia({
-                                video: true
-                            });
-                            videoElement.srcObject = videoStream;
-                            document.getElementById('btnFallbackCamera').classList.add('hidden');
-                            document.getElementById('loading').classList.add('hidden');
-
-                            const devices = await navigator.mediaDevices.enumerateDevices();
-                            videoDevices = devices.filter(device => device.kind === 'videoinput');
-                            if (videoDevices.length > 1) {
-                                document.getElementById('btnSwitchCamera').classList.remove('hidden');
-                            }
-
-                            startSmartScanLoop();
-                            startLiveStream();
-                        } catch (err4) {
-                            showCameraError("Kamera pilihan tidak dapat diakses.");
-                        }
-                    }
+                    startSmartScanLoop();
+                    startLiveStream();
+                } catch (err2) {
+                    console.error("Kamera gagal total: ", err2);
+                    showCameraError("Kamera tidak diizinkan atau tidak ditemukan. Silakan gunakan upload manual.");
                 }
             }
         }
@@ -547,7 +497,9 @@
         document.getElementById('btnSwitchCamera').addEventListener('click', () => {
             if (videoDevices.length > 0) {
                 currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
-                startCamera(videoDevices[currentDeviceIndex].deviceId);
+                const nextId = videoDevices[currentDeviceIndex].deviceId;
+                localStorage.setItem('kiosk_camera_device_id', nextId);
+                startCamera(nextId);
             }
         });
 
@@ -600,7 +552,27 @@
                         isProcessingOCR = true;
                         updateScanStatus("Mengekstrak data...", "bg-blue-400", true);
 
-                        // Dapatkan dimensi native dari kamera
+                        // 1. Coba ambil foto resolusi sensor fisik (ImageCapture API)
+                        let photoBlob = null;
+                        const track = videoStream ? videoStream.getVideoTracks()[0] : null;
+                        if (window.ImageCapture && track) {
+                            try {
+                                const imageCapture = new ImageCapture(track);
+                                photoBlob = await imageCapture.takePhoto({ imageWidth: 3840, imageHeight: 2160 });
+                            } catch (e) {
+                                console.warn("ImageCapture takePhoto fallback ke canvas:", e);
+                            }
+                        }
+
+                        if (photoBlob) {
+                            videoElement.pause();
+                            document.getElementById('scanningBigOverlay').classList.remove('hidden');
+                            document.getElementById('scanningBigOverlay').classList.add('flex');
+                            sendPhotoToOCR(photoBlob);
+                            return;
+                        }
+
+                        // 2. Fallback: Ambil frame kanvas native HD dengan margin 8% di sekitar kotak panduan
                         let vw = videoElement.videoWidth;
                         let vh = videoElement.videoHeight;
                         if (!vw || !vh) {
@@ -608,7 +580,6 @@
                             vh = videoElement.clientHeight || 1080;
                         }
 
-                        // Kalkulasi Auto-Crop berdasarkan posisi dashed border (object-cover)
                         const container = document.getElementById('cameraContainer');
                         const cw = container.clientWidth;
                         const ch = container.clientHeight;
@@ -623,33 +594,33 @@
                         const boxW = cw * 0.8;
                         const boxH = ch * 0.65;
                         const boxX = cw * 0.1;
-                        const boxY = ch * 0.175; // (1 - 0.65) / 2
+                        const boxY = ch * 0.175;
 
-                        // Mapping koordinat box kembali ke resolusi asli video (Native HD)
-                        const cropX = Math.max(0, (boxX - offsetX) / scale);
-                        const cropY = Math.max(0, (boxY - offsetY) / scale);
-                        const cropW = Math.min(vw - cropX, boxW / scale);
-                        const cropH = Math.min(vh - cropY, boxH / scale);
+                        // Berikan margin ekstra 8% agar 4 sudut kartu tidak terpotong untuk perspective warp
+                        const marginW = boxW * 0.08;
+                        const marginH = boxH * 0.08;
+                        const expX = Math.max(0, boxX - marginW);
+                        const expY = Math.max(0, boxY - marginH);
+                        const expW = Math.min(cw - expX, boxW + (marginW * 2));
+                        const expH = Math.min(ch - expY, boxH + (marginH * 2));
 
-                        // Set kanvas hanya seukuran KTP yang terpotong
+                        const cropX = Math.max(0, (expX - offsetX) / scale);
+                        const cropY = Math.max(0, (expY - offsetY) / scale);
+                        const cropW = Math.min(vw - cropX, expW / scale);
+                        const cropH = Math.min(vh - cropY, expH / scale);
+
                         canvasElement.width = cropW;
                         canvasElement.height = cropH;
 
-                        const ctx = canvasElement.getContext('2d', {
-                            willReadFrequently: true
-                        });
+                        const ctx = canvasElement.getContext('2d', { willReadFrequently: true });
                         ctx.imageSmoothingEnabled = true;
                         ctx.imageSmoothingQuality = 'high';
-
-                        // Crop frame asli dari video dan gambar ke canvas
                         ctx.drawImage(videoElement, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
-                        // Freeze camera & tampilkan animasi scanning
                         videoElement.pause();
                         document.getElementById('scanningBigOverlay').classList.remove('hidden');
                         document.getElementById('scanningBigOverlay').classList.add('flex');
 
-                        // Konversi ke JPEG Quality 100% untuk ketajaman maksimal tanpa artifact
                         canvasElement.toBlob((blob) => {
                             if (blob) {
                                 sendPhotoToOCR(blob);
@@ -742,9 +713,9 @@
                 });
                 const result = await response.json();
 
-                if (result.status === 'error') {
-                    console.error("OCR API Error:", result.pesan);
-                    updateScanStatus("Gagal membaca foto. Silakan ambil ulang.", "bg-red-500", true);
+                if (result.status === 'perlu_ulang' || result.status === 'error') {
+                    const pesan = result.alasan || result.pesan || "KTP kurang jelas. Coba ambil ulang dari Admin.";
+                    updateScanStatus(pesan, "bg-amber-500", false);
 
                     videoElement.play();
                     document.getElementById('scanningBigOverlay').classList.add('hidden');
@@ -753,7 +724,7 @@
                     setTimeout(() => {
                         isProcessingOCR = false;
                         updateScanStatus("Menunggu instruksi Admin...", "bg-blue-400", true);
-                    }, 2000);
+                    }, 4000);
                     return;
                 }
 
@@ -761,26 +732,18 @@
                     const nik = result.data_ktp.nik || '';
                     const nama = result.data_ktp.nama || '';
 
-
                     if (nik.length === 16 && nik !== "Tidak terdeteksi") {
                         stopCamera();
                         updateScanStatus("KTP Berhasil Terbaca!", "bg-green-500", false);
 
                         const finalNama = (nama && nama !== "Tidak terdeteksi") ? nama : '';
                         processSuccessfulScan(nik, finalNama);
-
                         return;
                     }
                 }
 
-                let raw = result.hasil_bacaan_mentah || "";
-                let snippet = raw.replace(/\n/g, ' ').trim().substring(0, 25);
-
-                if (snippet.length > 3) {
-                    updateScanStatus("Terbaca: " + snippet + "...", "bg-yellow-400", false);
-                } else {
-                    updateScanStatus("Gagal. Coba lagi dari Admin.", "bg-yellow-400", true);
-                }
+                const pesanFallback = result.alasan || "NIK belum terbaca lengkap. Coba lagi dari Admin.";
+                updateScanStatus(pesanFallback, "bg-yellow-400", false);
 
                 videoElement.play();
                 document.getElementById('scanningBigOverlay').classList.add('hidden');
