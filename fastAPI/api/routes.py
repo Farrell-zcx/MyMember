@@ -44,11 +44,8 @@ async def extract_ktp(
             if img is None:
                 continue
 
-            # 1. Perspective Warp ke Rasio Kanonik KTP (1712 x 1080) pada Resolusi Penuh
-            canonical_card, detected = detect_and_warp_ktp_canonical(img, target_w=1712, target_h=1080)
-
-            # 2. Universal OCR Pipeline (RapidOCR + Tesseract + Kemendagri Validation)
-            result = extract_ktp_universal(canonical_card)
+            # Universal OCR Pipeline (Dual-Ratio 9:16 & 16:9, Multi-Stream RapidOCR + Kemendagri)
+            result = extract_ktp_universal(img)
 
             # Jika berhasil valid, langsung return hasil terbaik
             if result.get("status") == "sukses":

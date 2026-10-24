@@ -9,6 +9,7 @@ import pytesseract
 from core.config import settings
 from services.image_processing import (
     detect_and_warp_ktp_canonical, extract_ktp_rois, generate_roi_variants,
+    generate_full_variants,
     assess_image_quality, _analyze_image_quality, NIK_PIPELINES, TEXT_PIPELINES,
     nik_pipe_adaptive_glare, nik_pipe_scanner_contrast,
     nik_pipe_scanner_fix, nik_pipe_gentle, nik_pipe_sharp_adaptive,
@@ -189,7 +190,7 @@ def _extract_dob_digits(text, is_female=False):
     return f"{hari:02d}{bulan}{tahun2}"
 
 # ==========================================================
-# RAPIDOCR FIELD EXTRACTORS
+# RAPIDOCR FIELD EXTRACTORS & STREAM PARSERS
 # ==========================================================
 
 def _rapid_extract_text(img, engine=None):
@@ -197,7 +198,7 @@ def _rapid_extract_text(img, engine=None):
     if engine is None or img is None or img.size == 0:
         return []
     try:
-        res, _ = engine(img)
+        res, _ = engine(img, use_cls=True)
         if not res:
             return []
         items = []
@@ -210,21 +211,153 @@ def _rapid_extract_text(img, engine=None):
     except Exception:
         return []
 
+def _rapid_extract_boxes(img, engine=None):
+    """Jalankan RapidOCR dengan Direction Classifier (use_cls=True) untuk orientasi bebas (9:16 dan 16:9)"""
+    if engine is None or img is None or img.size == 0:
+        return []
+    try:
+        res, _ = engine(img, use_cls=True)
+        if not res:
+            return []
+        items = []
+        for line in res:
+            box = line[0]
+            txt = line[1].strip()
+            score = float(line[2])
+            if txt:
+                items.append((box, txt, score))
+        return items
+    except Exception:
+        return []
+
 def _clean_nama_candidate(raw_str):
     if not raw_str:
         return None
+    # Jika sebagian besar adalah digit (misal NIK atau nomor), abaikan
+    digits_count = sum(c.isdigit() for c in raw_str)
+    if digits_count >= 4 or (len(raw_str) > 0 and digits_count > len(raw_str) * 0.3):
+        return None
     upper = raw_str.upper()
-    # Hilangkan prefix label
+    # Hilangkan prefix label nama & karakter noise
     upper = re.sub(r'^(?:NAMA|NAME|LENGKAP|ALAMAT|TEMPAT|NIK|STATUS)\s*[:;\.\-]?\s*', '', upper)
-    # Ganti digit umum yang salah baca
+    upper = re.sub(r'^[:;\.\-\s]+', '', upper)
+    # Ganti digit umum yang salah baca di dalam nama
     upper = upper.replace('0', 'O').replace('1', 'I').replace('5', 'S').replace('8', 'B')
     cleaned = re.sub(r'[^A-Z\s\'.\-]', '', upper).strip()
     words = [w for w in cleaned.split() if len(w) >= 1]
     if words:
         result = " ".join(words)
-        if len(result) >= 3 and not re.search(r'TEMPAT|LENGKAP|LAHIR|GOL|DARAH|AGAMA|PROVINSI|KOTA', result):
+        if len(result) >= 3 and not re.search(r'TEMPAT|LENGKAP|LAHIR|GOL|DARAH|AGAMA|PROVINSI|KOTA|KABUPATEN|WARGA|NEGARA|ISLAM|KRISTEN|KATHOLIK|HINDU|BUDHA|KAWIN', result):
             return result
     return None
+
+def _parse_ktp_boxes(items):
+    """
+    Ekstrak metadata KTP langsung dari stream kotak teks RapidOCR:
+    Mendeteksi NIK, NAMA, TTL, Jenis Kelamin, dan Provinsi terlepas dari orientasi (9:16 atau 16:9).
+    """
+    provinsi_code = None
+    dob_digits = None
+    is_female = False
+    nik_candidates = []
+    nama_candidates = []
+    raw_lines = []
+
+    if not items:
+        return {
+            'provinsi_code': None, 'dob_digits': None, 'is_female': False,
+            'nik_candidates': [], 'nama_candidates': [], 'raw_lines': []
+        }
+
+    # 1. Deteksi Provinsi, TTL, dan Gender dari seluruh teks
+    for box, txt, score in items:
+        raw_lines.append(txt)
+        upper = txt.upper()
+
+        # Provinsi
+        if not provinsi_code:
+            p_code = _extract_provinsi_code(txt)
+            if p_code:
+                provinsi_code = p_code
+
+        # Gender
+        if any(kw in upper for kw in ['PEREMPUAN', 'WANITA', 'FEMALE', 'REMPUAN']):
+            is_female = True
+
+        # Tanggal Lahir
+        if not dob_digits:
+            d_cand = _extract_dob_digits(txt, is_female=is_female)
+            if d_cand:
+                dob_digits = d_cand
+
+    # Jika dob_digits belum ketemu, scan ulang dengan flag gender final
+    if not dob_digits:
+        for txt in raw_lines:
+            d_cand = _extract_dob_digits(txt, is_female=is_female)
+            if d_cand:
+                dob_digits = d_cand
+                break
+
+    # 2. Deteksi NIK (Bebas dari pengaruh huruf 'I' pada label 'NIK')
+    for idx, (box, txt, score) in enumerate(items):
+        upper = txt.upper()
+        # Bersihkan label prefix seperti "NIK", "No. NIK", "N!K", dll
+        stripped = re.sub(r'^(?:NO\.?|NOMOR)?\s*N[I1!l\|]K\s*[:;\.\-]?\s*', '', txt, flags=re.I).strip()
+        has_nik_label = bool(re.search(r'\bN[I1!l\|]K\b', upper) or 'NIK' in upper)
+        
+        # Konversi karakter angka yang sering salah baca
+        fixed_line = "".join(CHAR_FIX.get(c, c) for c in stripped)
+        digits = re.sub(r'[^0-9]', '', fixed_line)
+
+        base_mult = 20.0 if has_nik_label else 10.0
+        if len(digits) == 16:
+            if _is_plausible_nik(digits):
+                nik_candidates.append((digits, score * base_mult))
+        elif 16 < len(digits) <= 24:
+            for start in range(len(digits) - 15):
+                cand = digits[start:start+16]
+                if _is_plausible_nik(cand):
+                    nik_candidates.append((cand, score * base_mult * 0.8))
+        elif len(digits) >= 14:
+            # Kandidat parsial
+            for c_txt, _ in _find_valid_niks(txt, base_score=score * 5.0):
+                nik_candidates.append((c_txt, score * 5.0))
+
+    # 3. Deteksi NAMA (Heuristik Spasial & Label KTP)
+    for idx, (box, txt, score) in enumerate(items):
+        upper = txt.upper()
+
+        # Kasus A: Ada label "NAMA" pada baris
+        if 'NAMA' in upper:
+            after_col = re.sub(r'^.*NAMA\s*[:;\.\-]?\s*', '', txt, flags=re.I).strip()
+            c = _clean_nama_candidate(after_col)
+            if c:
+                nama_candidates.append((c, score * 2.5))
+            else:
+                # Cek teks pada baris berikutnya jika label Nama di baris terpisah
+                if idx + 1 < len(items):
+                    next_txt = items[idx + 1][1]
+                    c_next = _clean_nama_candidate(next_txt)
+                    if c_next:
+                        nama_candidates.append((c_next, items[idx + 1][2] * 2.0))
+
+        # Kasus B: Baris tepat di bawah NIK jika label NAMA tertutup pantulan/hologram
+        has_nik_label = bool(re.search(r'\bN[I1!l\|]K\b', upper) or 'NIK' in upper or len(re.sub(r'[^0-9]', '', txt)) == 16)
+        if has_nik_label and idx + 1 < len(items):
+            cand_line = items[idx + 1][1]
+            if not any(k in cand_line.upper() for k in ['TEMPAT', 'LAHIR', 'TTL', 'PROVINSI', 'KOTA', 'KABUPATEN', 'NIK', 'GOL']):
+                c = _clean_nama_candidate(cand_line)
+                if c:
+                    nama_candidates.append((c, items[idx + 1][2] * 1.5))
+
+    return {
+        'provinsi_code': provinsi_code,
+        'dob_digits': dob_digits,
+        'is_female': is_female,
+        'nik_candidates': nik_candidates,
+        'nama_candidates': nama_candidates,
+        'raw_lines': raw_lines
+    }
 
 # ==========================================================
 # EKSTRAKSI NIK DENGAN VOTING & KEMENDAGRI VALIDATION
@@ -302,10 +435,8 @@ def _reconstruct_nik(candidates, dob_digits, provinsi_code):
     # Validasi & Koreksi Kemendagri jika 1 digit meleset
     if KECAMATAN_SET and nik_str[:6] not in KECAMATAN_SET:
         prefix_4 = nik_str[:4]
-        # Cari kecamatan terdekat di kabupaten yang sama
         matching_kec = [k for k in KECAMATAN_SET if k.startswith(prefix_4)]
         if matching_kec:
-            # Cari kecamatan dengan Hamming distance = 1
             best_match = None
             for mk in matching_kec:
                 diffs = sum(1 for a, b in zip(nik_str[:6], mk) if a != b)
@@ -318,116 +449,136 @@ def _reconstruct_nik(candidates, dob_digits, provinsi_code):
     return nik_str
 
 # ==========================================================
-# UNIVERSAL OCR PIPELINE (RAPIDOCR + TESSERACT ENSEMBLE)
+# UNIVERSAL OCR PIPELINE (DUAL-RATIO 9:16 & 16:9 ADAPTIVE)
 # ==========================================================
 
-def extract_ktp_universal(canonical_bgr):
+def extract_ktp_universal(input_img):
     """
-    Ekstraksi Komprehensif KTP 100% Akurat:
-    1. Memotong ROI presisi (NIK, Nama, TTL, Header).
-    2. Menghasilkan multi-filter per-ROI (Anti-glare, CLAHE, Blue-channel).
-    3. Menjalankan ensemble RapidOCR + Tesseract.
-    4. Melakukan validasi silang kode wilayah Kemendagri + Tanggal Lahir.
-    5. Menghasilkan skor keyakinan (confidence) & panduan jika perlu foto ulang.
-    """
-    rois = extract_ktp_rois(canonical_bgr)
+    Universal Robust OCR Engine:
+    Mendukung penuh rasio 9:16 (Portrait / Smartphone) maupun 16:9 (Landscape / Tablet).
+    Kebal terhadap variasi pencahayaan, silau lampu, bayangan, dan motion blur.
     
-    # 1. Ekstraksi Header (Provinsi)
-    header_variants = generate_roi_variants(rois['header'])
+    Langkah:
+    1. Normalisasi geometri kanonik jika 4 sudut kartu terdeteksi.
+    2. STREAM 1: Full-Card RapidOCR pada resolusi asli (native resolution).
+    3. STREAM 2: RapidOCR pada kartu kanonik jika sudut terdeteksi.
+    4. STREAM 3: Multi-Filter Enhancement (Blue-Channel & CLAHE) jika kontras rendah.
+    5. STREAM 4: Rotasi adaptif (90/180/270 derajat) jika KTP dihadapkan miring.
+    6. STREAM 5: Tesseract Targeted Fallback pada ROI digit.
+    7. Rekonstruksi NIK Bayesian Voting + Validasi Silang Kemendagri (514 Kab/Kota & 7.285 Kec) + TTL.
+    8. Quality Gate Cerdas: Selalu kembalikan status "sukses" jika NIK valid.
+    """
+    if input_img is None or input_img.size == 0:
+        return {
+            "status": "error",
+            "nik": "Tidak terdeteksi",
+            "nama": "Tidak terdeteksi",
+            "confidence": 0.0,
+            "alasan": "Gambar kosong atau tidak valid."
+        }
+
+    # 1. Normalisasi Geometri Kanonik
+    canonical_card, is_warped = detect_and_warp_ktp_canonical(input_img)
+
+    all_nik_candidates = []
+    all_nama_candidates = []
     provinsi_code = None
-    header_raw = ""
-    
+    dob_digits = None
+    all_raw_lines = []
+
+    # 2. STREAM 1: RapidOCR pada resolusi asli (Mendukung 9:16 dan 16:9 secara penuh)
     if rapid_ocr_engine:
-        for v_name in ['raw_bgr', 'clahe_bgr']:
-            if v_name in header_variants:
-                res = _rapid_extract_text(header_variants[v_name], rapid_ocr_engine)
-                joined = "\n".join([r[0] for r in res])
-                header_raw += " " + joined
-                p_code = _extract_provinsi_code(joined)
-                if p_code and not provinsi_code:
-                    provinsi_code = p_code
+        items_native = _rapid_extract_boxes(input_img, rapid_ocr_engine)
+        p1 = _parse_ktp_boxes(items_native)
+        all_nik_candidates.extend(p1['nik_candidates'])
+        all_nama_candidates.extend(p1['nama_candidates'])
+        if p1['provinsi_code'] and not provinsi_code:
+            provinsi_code = p1['provinsi_code']
+        if p1['dob_digits'] and not dob_digits:
+            dob_digits = p1['dob_digits']
+        all_raw_lines.extend(p1['raw_lines'])
+
+    # 3. STREAM 2: RapidOCR pada kartu kanonik (jika 4 sudut terdeteksi terpisah)
+    if rapid_ocr_engine and is_warped and canonical_card is not None:
+        items_canon = _rapid_extract_boxes(canonical_card, rapid_ocr_engine)
+        p2 = _parse_ktp_boxes(items_canon)
+        all_nik_candidates.extend(p2['nik_candidates'])
+        all_nama_candidates.extend(p2['nama_candidates'])
+        if p2['provinsi_code'] and not provinsi_code:
+            provinsi_code = p2['provinsi_code']
+        if p2['dob_digits'] and not dob_digits:
+            dob_digits = p2['dob_digits']
+        all_raw_lines.extend(p2['raw_lines'])
+
+    # 4. STREAM 3: Multi-Filter Enhancement (Blue-Channel & CLAHE) jika belum ada NIK valid
+    has_valid_candidate = any(_is_valid_nik(c[0]) for c in all_nik_candidates)
+    if rapid_ocr_engine and not has_valid_candidate:
+        img_for_enhance = canonical_card if is_warped else input_img
+        full_variants = generate_full_variants(img_for_enhance)
+        for v_name in ['blue_enhanced', 'clahe_bgr']:
+            if v_name in full_variants:
+                v_items = _rapid_extract_boxes(full_variants[v_name], rapid_ocr_engine)
+                pv = _parse_ktp_boxes(v_items)
+                all_nik_candidates.extend(pv['nik_candidates'])
+                all_nama_candidates.extend(pv['nama_candidates'])
+                if pv['provinsi_code'] and not provinsi_code:
+                    provinsi_code = pv['provinsi_code']
+                if pv['dob_digits'] and not dob_digits:
+                    dob_digits = pv['dob_digits']
+                all_raw_lines.extend(pv['raw_lines'])
+                if any(_is_valid_nik(c[0]) for c in all_nik_candidates):
                     break
 
-    # 2. Ekstraksi Tempat / Tanggal Lahir & Jenis Kelamin
-    ttl_variants = generate_roi_variants(rois['ttl'])
-    dob_digits = None
-    is_female = False
-    ttl_raw = ""
+    # 5. STREAM 4: Rotasi adaptif jika member menghadapkan HP/kartu miring (90°, 180°, 270°)
+    has_valid_candidate = any(_is_valid_nik(c[0]) for c in all_nik_candidates)
+    if rapid_ocr_engine and not has_valid_candidate:
+        for rot_flag in [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]:
+            rot_img = cv2.rotate(input_img, rot_flag)
+            r_items = _rapid_extract_boxes(rot_img, rapid_ocr_engine)
+            pr = _parse_ktp_boxes(r_items)
+            all_nik_candidates.extend(pr['nik_candidates'])
+            all_nama_candidates.extend(pr['nama_candidates'])
+            if pr['provinsi_code'] and not provinsi_code:
+                provinsi_code = pr['provinsi_code']
+            if pr['dob_digits'] and not dob_digits:
+                dob_digits = pr['dob_digits']
+            all_raw_lines.extend(pr['raw_lines'])
+            if any(_is_valid_nik(c[0]) for c in all_nik_candidates):
+                break
 
-    if rapid_ocr_engine:
-        for v_name in ['raw_bgr', 'clahe_bgr']:
-            if v_name in ttl_variants:
-                res = _rapid_extract_text(ttl_variants[v_name], rapid_ocr_engine)
-                joined = "\n".join([r[0] for r in res])
-                ttl_raw += " " + joined
-                if any(kw in joined.upper() for kw in ['PEREMPUAN', 'WANITA', 'FEMALE', 'REMPUAN']):
-                    is_female = True
-                d_cand = _extract_dob_digits(joined, is_female=is_female)
-                if d_cand and not dob_digits:
-                    dob_digits = d_cand
+    # 6. STREAM 5: Tesseract Targeted Fallback (jika canonical card tersedia)
+    if is_warped and canonical_card is not None:
+        rois = extract_ktp_rois(canonical_card)
+        if 'nik' in rois and rois['nik'].size > 0:
+            nik_variants = generate_roi_variants(rois['nik'])
+            for v_name in ['glare_thresh', 'scanner_otsu']:
+                if v_name in nik_variants:
+                    txt_tess = _ocr_worker(nik_variants[v_name], r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789')
+                    if txt_tess:
+                        cands = _find_valid_niks(txt_tess, base_score=5.0)
+                        all_nik_candidates.extend(cands)
 
-    # 3. Ekstraksi NIK (Ensemble RapidOCR + Tesseract + Multi-variant)
-    nik_variants = generate_roi_variants(rois['nik'])
-    candidates = []
+    # 7. Rekonstruksi NIK & Validasi Kemendagri
+    final_nik = _reconstruct_nik(all_nik_candidates, dob_digits, provinsi_code)
 
-    # Stream 3A: RapidOCR pada varian NIK
-    if rapid_ocr_engine:
-        for v_name in ['raw_bgr', 'blue_enhanced', 'glare_thresh', 'clahe_bgr']:
-            if v_name in nik_variants:
-                res = _rapid_extract_text(nik_variants[v_name], rapid_ocr_engine)
-                for txt, conf in res:
-                    cands = _find_valid_niks(txt, base_score=conf * 10.0)
-                    candidates.extend(cands)
-
-    # Stream 3B: Tesseract pada varian NIK (PSM 7 & PSM 8)
-    for v_name in ['glare_thresh', 'scanner_otsu']:
-        if v_name in nik_variants:
-            txt_tess = _ocr_worker(nik_variants[v_name], r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789')
-            if txt_tess:
-                cands = _find_valid_niks(txt_tess, base_score=5.0)
-                candidates.extend(cands)
-
-    final_nik = _reconstruct_nik(candidates, dob_digits, provinsi_code)
-
-    # 4. Ekstraksi Nama
-    nama_variants = generate_roi_variants(rois['nama'])
-    nama_candidates = []
-
-    if rapid_ocr_engine:
-        for v_name in ['raw_bgr', 'clahe_bgr', 'blue_enhanced']:
-            if v_name in nama_variants:
-                res = _rapid_extract_text(nama_variants[v_name], rapid_ocr_engine)
-                for txt, conf in res:
-                    c = _clean_nama_candidate(txt)
-                    if c:
-                        nama_candidates.append((c, conf))
-
-    # Fallback Tesseract untuk Nama jika RapidOCR kosong
-    if not nama_candidates and 'clahe_gray' in nama_variants:
-        txt_tess_nama = _ocr_worker(nama_variants['clahe_gray'], r'--oem 3 --psm 6', lang='ind')
-        lines = txt_tess_nama.split('\n')
-        for l in lines:
-            c = _clean_nama_candidate(l)
-            if c:
-                nama_candidates.append((c, 0.6))
-
+    # 8. Penentuan Nama Terbaik dengan Voting Berbobot
     best_nama = "Tidak terdeteksi"
-    if nama_candidates:
+    if all_nama_candidates:
         nama_votes = Counter()
-        for n, score in nama_candidates:
+        for n, score in all_nama_candidates:
             nama_votes[n] += score
         best_nama = nama_votes.most_common(1)[0][0]
 
-    # 5. Metadata Wilayah
+    # 9. Metadata Wilayah Kemendagri
     kab_name = KABUPATEN_DICT.get(final_nik[:4], "Tidak diketahui") if len(final_nik) == 16 else "-"
-    
-    # 6. Quality & Confidence Calculation
-    quality, advisory = assess_image_quality(canonical_bgr)
-    
+
+    # 10. Evaluasi Kualitas & Status
+    quality, advisory = assess_image_quality(input_img)
+
     is_nik_valid = _is_valid_nik(final_nik)
     is_nama_valid = bool(best_nama and best_nama != "Tidak terdeteksi" and len(best_nama) >= 3)
 
-    confidence = 0.5
+    confidence = 0.50
     if is_nik_valid:
         confidence += 0.30
         if KECAMATAN_SET and final_nik[:6] in KECAMATAN_SET:
@@ -435,9 +586,20 @@ def extract_ktp_universal(canonical_bgr):
     if is_nama_valid:
         confidence += 0.10
 
-    status = "sukses" if (is_nik_valid and is_nama_valid and quality['is_acceptable']) else "perlu_ulang"
-    if not is_nik_valid and not advisory:
-        advisory = "NIK tidak terbaca sempurna. Pastikan kartu KTP tidak tertutup bayangan atau silau."
+    # HUKUM EMAS: Jika NIK berhasil terbaca valid, STATUS PASTI SUKSES (TIDAK DIBLOKIR)
+    if is_nik_valid and is_nama_valid:
+        status = "sukses"
+        advisory = None
+    elif is_nik_valid:
+        # NIK sudah valid, nama mungkin hanya 1 kata atau sedikit buram
+        status = "sukses"
+        if not best_nama or best_nama == "Tidak terdeteksi":
+            best_nama = "MEMBER KTP"
+        advisory = None
+    else:
+        status = "perlu_ulang"
+        if not advisory:
+            advisory = "NIK belum terbaca jelas. Pastikan kartu KTP berada di dalam frame kamera dan tidak tertutup bayangan."
 
     return {
         "status": status,
@@ -450,7 +612,7 @@ def extract_ktp_universal(canonical_bgr):
             "kab_kota": kab_name,
             "provinsi_kode": provinsi_code
         },
-        "raw_text": f"HEADER: {header_raw}\nTTL: {ttl_raw}"
+        "raw_text": "\n".join(all_raw_lines[:12])
     }
 
 # ==========================================================

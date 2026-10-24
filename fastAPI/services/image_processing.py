@@ -7,11 +7,12 @@ import numpy as np
 
 def detect_and_warp_ktp_canonical(img, target_w=1712, target_h=1080):
     """
-    Normalisasi Geometri KTP Resolusi Penuh:
-    1. Pastikan orientasi mendatar (Landscape: W > H).
-    2. Deteksi 4 sudut fisik kartu KTP pada resolusi penuh (Gray + Saturation).
-    3. Lakukan Perspective Warp ke rasio standar e-KTP (1712 x 1080 piksel).
-    4. Fallback anggun jika kartu sudah terpotong (aspect ratio 1.40 - 1.80).
+    Normalisasi Geometri KTP:
+    Mendukung input resolusi penuh baik dalam rasio 9:16 (Portrait) maupun 16:9 (Landscape).
+    1. Mencari kontur 4 sudut kartu KTP fisik pada resolusi penuh.
+    2. Jika kontur 4 sudut ditemukan, lakukan Perspective Warp ke rasio standar e-KTP (1712 x 1080).
+    3. Jika kartu berorientasi vertikal, secara otomatis ditata menjadi landscape.
+    4. Jika 4 sudut tidak terdeteksi (misal dipegang tangan), kembalikan gambar asli utuh tanpa kompresi paksa.
     """
     if img is None:
         return None, False
@@ -20,19 +21,14 @@ def detect_and_warp_ktp_canonical(img, target_w=1712, target_h=1080):
     if w <= 0 or h <= 0:
         return img, False
 
-    # 1. Koreksi orientasi jika vertikal/potret
-    if h > w:
-        img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
-        h, w = img.shape[:2]
-
     aspect = float(w) / float(h)
 
-    # 2. Jika foto sudah terpotong kartu (misal dari kiosk frame 1.40 - 1.80)
-    if 1.40 <= aspect <= 1.80:
+    # 1. Jika gambar sudah ter-crop pas kartu e-KTP (rasio ~1.58, rentang ketat 1.50 - 1.66)
+    if 1.50 <= aspect <= 1.66 and min(w, h) >= 400:
         warped = cv2.resize(img, (target_w, target_h), interpolation=cv2.INTER_CUBIC)
         return warped, True
 
-    # 3. Deteksi kontur kartu pada resolusi tinggi menggunakan Gray + Saturation
+    # 2. Deteksi kontur kartu pada resolusi tinggi menggunakan Gray + Saturation
     if len(img.shape) == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -43,7 +39,7 @@ def detect_and_warp_ktp_canonical(img, target_w=1712, target_h=1080):
         combined = gray
 
     blurred = cv2.GaussianBlur(combined, (7, 7), 0)
-    edges = cv2.Canny(blurred, 40, 130)
+    edges = cv2.Canny(blurred, 30, 120)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
     closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
 
@@ -54,17 +50,17 @@ def detect_and_warp_ktp_canonical(img, target_w=1712, target_h=1080):
 
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < 0.15 * img_area or area > 0.98 * img_area:
+        if area < 0.10 * img_area or area > 0.98 * img_area:
             continue
         peri = cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, 0.03 * peri, True)
+        approx = cv2.approxPolyDP(cnt, 0.035 * peri, True)
         if len(approx) == 4:
             rect = cv2.minAreaRect(cnt)
             (cx, cy), (cw, ch), angle = rect
             if cw == 0 or ch == 0:
                 continue
             r_aspect = max(cw, ch) / min(cw, ch)
-            if 1.30 <= r_aspect <= 1.95:
+            if 1.25 <= r_aspect <= 1.95:
                 if area > max_area:
                     max_area = area
                     best_quad = approx.reshape(4, 2)
@@ -81,6 +77,19 @@ def detect_and_warp_ktp_canonical(img, target_w=1712, target_h=1080):
             return rect_ordered
 
         src_pts = order_points(best_quad.astype("float32"))
+        
+        # Hitung lebar & tinggi fisik kuadran untuk memastikan orientasi mendatar
+        w_top = np.linalg.norm(src_pts[1] - src_pts[0])
+        w_bot = np.linalg.norm(src_pts[2] - src_pts[3])
+        h_left = np.linalg.norm(src_pts[3] - src_pts[0])
+        h_right = np.linalg.norm(src_pts[2] - src_pts[1])
+        avg_w = (w_top + w_bot) / 2.0
+        avg_h = (h_left + h_right) / 2.0
+
+        if avg_h > avg_w:
+            # Kartu terdeteksi vertikal di dalam gambar, putar titik referensi ke landscape
+            src_pts = np.roll(src_pts, -1, axis=0)
+
         dst_pts = np.array([
             [0, 0],
             [target_w - 1, 0],
@@ -92,9 +101,9 @@ def detect_and_warp_ktp_canonical(img, target_w=1712, target_h=1080):
         warped = cv2.warpPerspective(img, M, (target_w, target_h), flags=cv2.INTER_CUBIC)
         return warped, True
 
-    # Fallback jika kontur 4 sudut tidak terdeteksi sempurna
-    warped = cv2.resize(img, (target_w, target_h), interpolation=cv2.INTER_CUBIC)
-    return warped, False
+    # Jika kontur 4 sudut tidak terdeteksi sempurna, kembalikan gambar asli
+    # agar model AI DBNet RapidOCR dapat membaca langsung dari seluruh frame gambar
+    return img, False
 
 # ==========================================================
 # EKSTRAKSI REGION OF INTEREST (ROI) KTP KANONIK
@@ -105,18 +114,53 @@ def extract_ktp_rois(canonical_bgr):
     Memotong field-field spesifik pada kartu kanonik 1712x1080.
     Setiap field memiliki resolusi vertikal tinggi (~40-60 px tinggi huruf).
     """
+    if canonical_bgr is None:
+        return {}
     h, w = canonical_bgr.shape[:2]
     return {
-        'nik': canonical_bgr[int(h * 0.15):int(h * 0.32), int(w * 0.14):int(w * 0.85)],
-        'nama': canonical_bgr[int(h * 0.28):int(h * 0.42), int(w * 0.20):int(w * 0.85)],
-        'ttl': canonical_bgr[int(h * 0.38):int(h * 0.50), int(w * 0.20):int(w * 0.85)],
-        'header': canonical_bgr[0:int(h * 0.20), int(w * 0.10):int(w * 0.90)],
+        'nik': canonical_bgr[int(h * 0.14):int(h * 0.33), int(w * 0.12):int(w * 0.88)],
+        'nama': canonical_bgr[int(h * 0.28):int(h * 0.44), int(w * 0.18):int(w * 0.88)],
+        'ttl': canonical_bgr[int(h * 0.38):int(h * 0.52), int(w * 0.18):int(w * 0.88)],
+        'header': canonical_bgr[0:int(h * 0.22), int(w * 0.08):int(w * 0.92)],
         'full': canonical_bgr
     }
 
+def generate_full_variants(bgr_img):
+    """
+    Menghasilkan varian prapemrosesan untuk seluruh gambar (Full Card / Canvas):
+    1. raw_bgr: Warna asli tajam.
+    2. blue_enhanced: 75% Blue Channel (memutihkan background batik KTP).
+    3. clahe_bgr: Penyetaraan kontras adaptif untuk bayangan & ruangan remang.
+    """
+    variants = {}
+    if bgr_img is None or bgr_img.size == 0:
+        return variants
+
+    variants['raw_bgr'] = bgr_img
+
+    if len(bgr_img.shape) == 3:
+        b, g, r = cv2.split(bgr_img)
+        std_gray = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2GRAY)
+        blue_enhanced = cv2.addWeighted(b, 0.75, std_gray, 0.25, 0)
+        variants['blue_enhanced'] = cv2.cvtColor(blue_enhanced, cv2.COLOR_GRAY2BGR)
+
+        # CLAHE (LAB Space)
+        lab = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2LAB)
+        l, a, b_ch = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        l_clahe = clahe.apply(l)
+        lab_clahe = cv2.merge((l_clahe, a, b_ch))
+        variants['clahe_bgr'] = cv2.cvtColor(lab_clahe, cv2.COLOR_LAB2BGR)
+    else:
+        variants['blue_enhanced'] = bgr_img
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        variants['clahe_bgr'] = clahe.apply(bgr_img)
+
+    return variants
+
 def generate_roi_variants(roi_bgr):
     """
-    Menghasilkan 4 varian filter khusus per-ROI untuk mengatasi berbagai kondisi pencahayaan:
+    Menghasilkan 5 varian filter khusus per-ROI untuk mengatasi berbagai kondisi pencahayaan:
     1. raw_bgr: Warna asli tajam untuk RapidOCR deep-learning.
     2. blue_enhanced: 75% Blue Channel (memutihkan background KTP).
     3. clahe_bgr & clahe_gray: Peningkatan kontras lokal untuk ruangan remang/kuning.
@@ -175,8 +219,8 @@ def generate_roi_variants(roi_bgr):
 def assess_image_quality(img):
     """
     Evaluasi Kualitas Gambar:
-    Mendeteksi silau (glare), blur/goyang (Laplacian variance), dan kegelapan.
-    Jika kualitas terlalu buruk untuk OCR 100%, sistem menghasilkan instruksi retake yang ramah pengguna.
+    Mendeteksi silau berat (glare), blur goyang, dan kegelapan ekstrem.
+    Berfungsi sebagai 'Advisory Guidance' (panduan ramah jika teks gagal terbaca).
     """
     if img is None:
         return {'is_acceptable': False}, "Gambar tidak valid atau kosong."
@@ -186,11 +230,11 @@ def assess_image_quality(img):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         v = hsv[:, :, 2]
         s = hsv[:, :, 1]
-        glare_pixels = np.sum((v > 245) & (s < 30))
+        glare_pixels = np.sum((v > 250) & (s < 20))
         glare_ratio = float(glare_pixels) / float(v.size)
     else:
         gray = img
-        glare_ratio = float(np.sum(gray > 250)) / float(gray.size)
+        glare_ratio = float(np.sum(gray > 252)) / float(gray.size)
 
     mean_brightness = cv2.mean(gray)[0]
     laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
@@ -199,9 +243,9 @@ def assess_image_quality(img):
         'brightness': mean_brightness,
         'blur_var': laplacian_var,
         'glare_ratio': glare_ratio,
-        'is_dark': mean_brightness < 75,
-        'is_blurry': laplacian_var < 100,
-        'is_severe_glare': glare_ratio > 0.12,
+        'is_dark': mean_brightness < 45,
+        'is_blurry': laplacian_var < 50,
+        'is_severe_glare': glare_ratio > 0.40,
         'is_acceptable': True
     }
 

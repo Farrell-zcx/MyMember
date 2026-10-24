@@ -572,7 +572,7 @@
                             return;
                         }
 
-                        // 2. Fallback: Ambil frame kanvas native HD dengan margin 8% di sekitar kotak panduan
+                        // 2. Fallback: Ambil frame kanvas native resolusi penuh sensor (kebal rasio 9:16 & 16:9)
                         let vw = videoElement.videoWidth;
                         let vh = videoElement.videoHeight;
                         if (!vw || !vh) {
@@ -580,42 +580,13 @@
                             vh = videoElement.clientHeight || 1080;
                         }
 
-                        const container = document.getElementById('cameraContainer');
-                        const cw = container.clientWidth;
-                        const ch = container.clientHeight;
-
-                        const scale = Math.max(cw / vw, ch / vh);
-                        const displayW = vw * scale;
-                        const displayH = vh * scale;
-                        const offsetX = (cw - displayW) / 2;
-                        const offsetY = (ch - displayH) / 2;
-
-                        // Ukuran dashed box di layar (w-[80%] h-[65%], di tengah)
-                        const boxW = cw * 0.8;
-                        const boxH = ch * 0.65;
-                        const boxX = cw * 0.1;
-                        const boxY = ch * 0.175;
-
-                        // Berikan margin ekstra 8% agar 4 sudut kartu tidak terpotong untuk perspective warp
-                        const marginW = boxW * 0.08;
-                        const marginH = boxH * 0.08;
-                        const expX = Math.max(0, boxX - marginW);
-                        const expY = Math.max(0, boxY - marginH);
-                        const expW = Math.min(cw - expX, boxW + (marginW * 2));
-                        const expH = Math.min(ch - expY, boxH + (marginH * 2));
-
-                        const cropX = Math.max(0, (expX - offsetX) / scale);
-                        const cropY = Math.max(0, (expY - offsetY) / scale);
-                        const cropW = Math.min(vw - cropX, expW / scale);
-                        const cropH = Math.min(vh - cropY, expH / scale);
-
-                        canvasElement.width = cropW;
-                        canvasElement.height = cropH;
+                        canvasElement.width = vw;
+                        canvasElement.height = vh;
 
                         const ctx = canvasElement.getContext('2d', { willReadFrequently: true });
                         ctx.imageSmoothingEnabled = true;
                         ctx.imageSmoothingQuality = 'high';
-                        ctx.drawImage(videoElement, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+                        ctx.drawImage(videoElement, 0, 0, vw, vh);
 
                         videoElement.pause();
                         document.getElementById('scanningBigOverlay').classList.remove('hidden');

@@ -72,8 +72,7 @@ def run_benchmark():
                 gt_nama = parts[1].strip().upper()
 
         t0 = time.time()
-        canonical, detected = detect_and_warp_ktp_canonical(img)
-        res = extract_ktp_universal(canonical)
+        res = extract_ktp_universal(img)
         dur = (time.time() - t0) * 1000.0
         latencies.append(dur)
 
