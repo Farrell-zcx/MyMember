@@ -5,6 +5,7 @@ import re
 import difflib
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+import cv2
 import pytesseract
 from core.config import settings
 from services.image_processing import (
