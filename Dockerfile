@@ -48,6 +48,9 @@ RUN echo '<Directory /var/www/html/public>\n\
 </Directory>' > /etc/apache2/conf-available/ci4.conf \
     && a2enconf ci4
 
+# Set limit upload PHP agar selaras dengan Nginx (20MB) untuk foto KTP resolusi tinggi
+RUN printf "upload_max_filesize = 20M\npost_max_size = 25M\nmemory_limit = 256M\n" > /usr/local/etc/php/conf.d/uploads.ini
+
 EXPOSE 80
 
 CMD ["apache2-foreground"]

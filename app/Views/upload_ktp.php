@@ -552,32 +552,20 @@
                         isProcessingOCR = true;
                         updateScanStatus("Mengekstrak data...", "bg-blue-400", true);
 
-                        // 1. Coba ambil foto resolusi sensor fisik (ImageCapture API)
-                        let photoBlob = null;
-                        const track = videoStream ? videoStream.getVideoTracks()[0] : null;
-                        if (window.ImageCapture && track) {
-                            try {
-                                const imageCapture = new ImageCapture(track);
-                                photoBlob = await imageCapture.takePhoto({ imageWidth: 3840, imageHeight: 2160 });
-                            } catch (e) {
-                                console.warn("ImageCapture takePhoto fallback ke canvas:", e);
-                            }
-                        }
-
-                        if (photoBlob) {
-                            videoElement.pause();
-                            document.getElementById('scanningBigOverlay').classList.remove('hidden');
-                            document.getElementById('scanningBigOverlay').classList.add('flex');
-                            sendPhotoToOCR(photoBlob);
-                            return;
-                        }
-
-                        // 2. Fallback: Ambil frame kanvas native resolusi penuh sensor (kebal rasio 9:16 & 16:9)
+                        // Ambil frame kanvas resolusi optimal (Full HD max 1920px, kebal rasio 9:16 & 16:9)
+                        // Menghasilkan ukuran ~250KB (upload <0.5 detik) dengan ketajaman penuh untuk OCR kanonik (1712x1080)
                         let vw = videoElement.videoWidth;
                         let vh = videoElement.videoHeight;
                         if (!vw || !vh) {
                             vw = videoElement.clientWidth || 1920;
                             vh = videoElement.clientHeight || 1080;
+                        }
+
+                        const maxDim = 1920;
+                        if (Math.max(vw, vh) > maxDim) {
+                            const scale = maxDim / Math.max(vw, vh);
+                            vw = Math.round(vw * scale);
+                            vh = Math.round(vh * scale);
                         }
 
                         canvasElement.width = vw;
@@ -599,7 +587,7 @@
                                 isProcessingOCR = false;
                                 updateScanStatus("Menunggu instruksi Admin...", "bg-blue-400", true);
                             }
-                        }, 'image/jpeg', 1.0);
+                        }, 'image/jpeg', 0.88);
                     }
                 } catch (e) {
                     console.error("SmartScan Error:", e);

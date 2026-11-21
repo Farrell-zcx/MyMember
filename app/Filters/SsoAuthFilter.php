@@ -54,7 +54,7 @@ class SsoAuthFilter implements FilterInterface
         session()->set('sso_state', $state);
 
         $isLocalhost  = isset($_SERVER['HTTP_HOST']) && (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '.test') !== false);
-        $defaultSsoBase  = $isLocalhost ? (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false ? 'http://sso.localhost' : 'http://sso-engine.test') : 'https://sso.31.97.48.33.sslip.io';
+        $defaultSsoBase  = $isLocalhost ? (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false ? 'http://sso.localhost' : 'http://sso-engine.test') : 'https://sso.mymember.tech';
         $defaultRedirect = $isLocalhost ? (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false ? 'http://mymember.localhost/auth/callback' : 'http://mymember.test/auth/callback') : 'https://mymember.tech/auth/callback';
 
         $ssoBaseUrl  = getenv('SSO_BASE_URL') ?: (!$isLocalhost ? $defaultSsoBase : env('sso.baseUrl')) ?: $defaultSsoBase;

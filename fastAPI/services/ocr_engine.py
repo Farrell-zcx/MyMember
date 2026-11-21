@@ -478,6 +478,12 @@ def extract_ktp_universal(input_img):
             "alasan": "Gambar kosong atau tidak valid."
         }
 
+    # Optimasi untuk foto ukuran raksasa (>2000px) agar tetap cepat tanpa mengurangi akurasi kanonik (1712x1080)
+    ih, iw = input_img.shape[:2]
+    if max(ih, iw) > 2000:
+        scale_opt = 1920.0 / float(max(ih, iw))
+        input_img = cv2.resize(input_img, (int(round(iw * scale_opt)), int(round(ih * scale_opt))), interpolation=cv2.INTER_AREA)
+
     # 1. Normalisasi Geometri Kanonik
     canonical_card, is_warped = detect_and_warp_ktp_canonical(input_img)
 
@@ -499,8 +505,14 @@ def extract_ktp_universal(input_img):
             dob_digits = p1['dob_digits']
         all_raw_lines.extend(p1['raw_lines'])
 
-    # 3. STREAM 2: RapidOCR pada kartu kanonik (jika 4 sudut terdeteksi terpisah)
-    if rapid_ocr_engine and is_warped and canonical_card is not None:
+    # Early-exit check: jika STREAM 1 sudah dapat NIK 16 digit valid (terverifikasi Kemendagri) DAN Nama valid, skip stream tambahan
+    has_fast_valid = (
+        any(_is_valid_nik(c[0]) and (not KECAMATAN_SET or c[0][:6] in KECAMATAN_SET) for c in all_nik_candidates)
+        and bool(all_nama_candidates)
+    )
+
+    # 3. STREAM 2: RapidOCR pada kartu kanonik (jika 4 sudut terdeteksi terpisah & STREAM 1 belum lengkap)
+    if rapid_ocr_engine and not has_fast_valid and is_warped and canonical_card is not None:
         items_canon = _rapid_extract_boxes(canonical_card, rapid_ocr_engine)
         p2 = _parse_ktp_boxes(items_canon)
         all_nik_candidates.extend(p2['nik_candidates'])
@@ -547,8 +559,9 @@ def extract_ktp_universal(input_img):
             if any(_is_valid_nik(c[0]) for c in all_nik_candidates):
                 break
 
-    # 6. STREAM 5: Tesseract Targeted Fallback (jika canonical card tersedia)
-    if is_warped and canonical_card is not None:
+    # 6. STREAM 5: Tesseract Targeted Fallback (hanya jika belum ada NIK valid & canonical card tersedia)
+    has_valid_candidate = any(_is_valid_nik(c[0]) for c in all_nik_candidates)
+    if not has_valid_candidate and is_warped and canonical_card is not None:
         rois = extract_ktp_rois(canonical_card)
         if 'nik' in rois and rois['nik'].size > 0:
             nik_variants = generate_roi_variants(rois['nik'])
